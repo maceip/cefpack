@@ -66,10 +66,13 @@ if [ "${CREDIT}" -lt "${MIN_CREDIT}" ]; then
 fi
 
 echo "== 2. the sandbox =="
+# The hard timeout and the inactivity timeout are the same: the build runs
+# for hours, and a sandbox that is put to sleep halfway through it would
+# cost the whole checkout.  The hard timeout is what ends the run.
 CREATED="$("${LIM}" gradle create \
   --display-name "cef-build-$(git rev-parse --short HEAD 2>/dev/null || echo local)" \
   --hard-timeout "${TIMEOUT}s" \
-  --inactivity-timeout 30m \
+  --inactivity-timeout "${TIMEOUT}s" \
   --reuse-if-exists \
   --json)"
 # The answer of the CLI is {metadata, spec, status}; the id is in the

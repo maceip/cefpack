@@ -47,32 +47,51 @@ no `sudo`, so the installer never needs it.
 
 ## 2. `fetch` — the sources
 
-CEF is a layer on top of Chromium.  The service checks out the pinned commit
-of CEF and then lets `gclient` fetch what CEF's `DEPS` file names:
+CEF is a layer **inside** the tree of Chromium, at `src/cef`.  That is not a
+choice of this service: the hook of CEF takes the directory of its own
+script as the directory of CEF and the parent of it as the directory of
+Chromium, and CEF's own tooling writes the solution in exactly that shape.
+
+The service therefore checks out both trees, at the commits that the
+manifest pins, and lets `gclient` fetch the dependencies that their `DEPS`
+files name:
 
 ```bash
-git clone --filter=blob:none --no-checkout https://github.com/chromiumembedded/cef.git cef
+# the tree of Chromium
+git clone --filter=blob:none --no-checkout https://chromium.googlesource.com/chromium/src.git src
+git fetch --depth 1 origin 2ad9b7f5a86846e0b264090723a6a78964bb84c4
+git checkout --detach 2ad9b7f5a86846e0b264090723a6a78964bb84c4
+
+# the layer of CEF, inside it
+git clone --filter=blob:none --no-checkout https://github.com/chromiumembedded/cef.git src/cef
 git fetch --depth 1 origin 6028375a4532fb89d23b58635f5c0d3a82c93959
 git checkout --detach 6028375a4532fb89d23b58635f5c0d3a82c93959
+
+# the dependencies, and the hook of CEF that patches the tree
 gclient sync --no-history --shallow --with_branch_heads --force --reset
 ```
 
-The Chromium revision is **not** written in the manifest.  It lives in CEF's
-own `DEPS` file, which `gclient` reads and verifies, so the pin stays a
-single commit and the Chromium side cannot drift away from it.
+The `.gclient` file that the last command reads names two solutions — `src`
+and `src/cef` — and says that neither is *managed* by `gclient`: the commits
+are pinned by this service, and `gclient` is there for the dependencies.
 
-The checkout is large — tens of gigabytes, and about a hundred with the
-history — and it takes hours.  This is the reason the build needs its own
-machine and its own cache.
+The Chromium revision **is** written in the manifest.  CEF's own `DEPS` file
+carries only its hook and names no revision of Chromium, so the pin of the
+Chromium side belongs to the manifest, next to the pin of CEF.
+
+The checkout is large — tens of gigabytes — and it takes hours.  This is the
+reason the build needs its own machine and its own cache.
 
 ## 3. `headers` — the C API
 
 The public headers of CEF are **not** all in the source tree.  Only
-`include/capi/cef_base_capi.h` is checked in; the other 160 are written by
-the build:
+`include/capi/cef_base_capi.h` is checked in; the others are written by the
+build, which knows the headers of the tree it builds.  The service therefore
+collects the headers **after** the build, and it checks their number where
+they are written:
 
 ```bash
-python3 tools/version_manager.py <cef_dir>          # the 161 C API headers
+python3 tools/version_manager.py                     # the translated files
 python3 tools/make_config_header.py <out.h> <args.gn>
 python3 tools/make_version_header.py <out.h>
 python3 tools/make_api_versions_header.py <out.h> <out.inc> cef_api_versions.json cef_api_untracked.json
