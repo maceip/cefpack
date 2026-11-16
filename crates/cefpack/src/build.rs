@@ -82,9 +82,20 @@ pub fn build(plan: &Plan, debug: bool) -> Result<BuildOutput> {
             plan.source_root.display()
         )
     })?;
+    // The number of jobs is bounded by the memory of the container: a link
+    // of Chromium needs several gigabytes, and a build that is killed
+    // halfway is a build that is lost.
+    let jobs = plan.jobs();
+    log::info!("the build runs {jobs} jobs at a time");
     let status = Command::new(&ninja)
         .current_dir(plan.chromium_dir())
-        .args(["-C", &out.to_string_lossy(), "libcef", "libcef_dll_wrapper"])
+        .args([
+            "-C",
+            &out.to_string_lossy(),
+            &format!("-j{jobs}"),
+            "libcef",
+            "libcef_dll_wrapper",
+        ])
         .env("PATH", path_with_depot_tools(plan))
         .status()
         .with_context(|| format!("cannot run {}", ninja.display()))?;

@@ -92,26 +92,19 @@ fn checkout(dir: &Path, repo: &str, commit: &str, what: &str) -> Result<()> {
         git(dir, &["checkout", "--detach", commit])?;
     } else {
         log::info!("cloning {repo} at {commit}");
-        // The clone is made in the parent, with the name of the directory:
-        // `git clone` creates the directory itself.
+        // The repository is made empty and the commit is fetched into it.
+        // A clone would fetch the branch as well, and the branch of Chromium
+        // is an order of magnitude larger than the commit that is wanted.
         let parent = dir.parent().unwrap_or_else(|| Path::new("."));
         let name = dir
             .file_name()
             .unwrap_or_else(|| std::ffi::OsStr::new("checkout"));
         std::fs::create_dir_all(parent)
             .with_context(|| format!("cannot create {}", parent.display()))?;
-        git(
-            parent,
-            &[
-                "clone",
-                "--filter=blob:none",
-                "--no-checkout",
-                repo,
-                &name.to_string_lossy(),
-            ],
-        )?;
+        git(parent, &["init", "--quiet", &name.to_string_lossy()])?;
+        git(dir, &["remote", "add", "origin", repo])?;
         git(dir, &["fetch", "--depth", "1", "origin", commit])?;
-        git(dir, &["checkout", "--detach", commit])?;
+        git(dir, &["checkout", "--detach", "FETCH_HEAD"])?;
     }
 
     let current = head_commit(dir)?;
@@ -253,9 +246,21 @@ pub fn head_commit(dir: &Path) -> Result<String> {
 }
 
 /// Run a git command in a directory.
+///
+/// The memory of `git` is bounded: the tree of Chromium has millions of
+/// objects, and the pack that carries them does not fit in the memory of a
+/// container.  `git` spills the pack to the disk instead of holding it.
 fn git(dir: &Path, args: &[&str]) -> Result<()> {
     let output = Command::new("git")
         .current_dir(dir)
+        // The options come first: they are the options of git itself, not of
+        // the command that follows.
+        .arg("-c")
+        .arg("pack.threads=1")
+        .arg("-c")
+        .arg("pack.memoryLimit=2g")
+        .arg("-c")
+        .arg("core.deltaBaseCacheLimit=64m")
         .args(args)
         .output()
         .with_context(|| format!("cannot run git in {}", dir.display()))?;

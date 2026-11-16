@@ -77,6 +77,28 @@ impl Plan {
         }
     }
 
+    /// How many jobs the build may run at the same time.
+    ///
+    /// The machine that runs the build has many cores and a container that
+    /// limits the memory.  A compile of Chromium needs about a gigabyte, and
+    /// a link needs several, so the number of jobs is derived from the
+    /// memory the container allows and not from the number of cores: a build
+    /// that is killed by the memory of the machine is a build that is lost.
+    pub fn jobs(&self) -> usize {
+        let limit = memory_limit_bytes();
+        let cores = std::thread::available_parallelism()
+            .map(|n| n.get())
+            .unwrap_or(4);
+        match limit {
+            Some(bytes) => {
+                // Two gigabytes per job, and never fewer than one.
+                let by_memory = (bytes / (2 * 1024 * 1024 * 1024)).max(1) as usize;
+                by_memory.min(cores).max(1)
+            }
+            None => cores.min(8),
+        }
+    }
+
     /// Resolve the plan and check the environment.
     ///
     /// Every tool is located by an explicit environment variable first and
@@ -345,6 +367,43 @@ fn find_tool(
     );
 }
 
+/// The memory the container allows, when it says.
+///
+/// The limit is read from the control group of the process — the value that
+/// the machine actually enforces — and not from the memory of the host,
+/// which a container can see and cannot use.
+fn memory_limit_bytes() -> Option<u64> {
+    for path in [
+        "/sys/fs/cgroup/memory.max",
+        "/sys/fs/cgroup/memory/memory.limit_in_bytes",
+    ] {
+        let Ok(text) = std::fs::read_to_string(path) else {
+            continue;
+        };
+        let text = text.trim();
+        if text == "max" {
+            return None;
+        }
+        if let Ok(bytes) = text.parse::<u64>() {
+            // A limit that is larger than the memory of the host is no limit.
+            if let Ok(meminfo) = std::fs::read_to_string("/proc/meminfo") {
+                if let Some(total) = meminfo
+                    .lines()
+                    .find_map(|l| l.strip_prefix("MemTotal:"))
+                    .and_then(|l| l.split_whitespace().next())
+                    .and_then(|v| v.parse::<u64>().ok())
+                {
+                    if bytes > total * 1024 {
+                        return None;
+                    }
+                }
+            }
+            return Some(bytes);
+        }
+    }
+    None
+}
+
 /// Ask a tool for its version.
 ///
 /// A tool that cannot be started is not an error: the plan says where the
@@ -449,6 +508,24 @@ mod tests {
         let plan = plan_with(&depot, &source);
         assert_eq!(plan.build_tool("ninja"), Some(depot.join("ninja")));
         assert_eq!(plan.build_tool("gn"), None, "there is no gn anywhere");
+    }
+
+    #[test]
+    fn the_build_never_runs_more_jobs_than_the_machine_can_hold() {
+        let dir = tempfile::tempdir().expect("a temporary directory");
+        let plan = plan_with(
+            &dir.path().join("depot_tools"),
+            &dir.path().join("cef-source"),
+        );
+        let jobs = plan.jobs();
+        let cores = std::thread::available_parallelism()
+            .map(|n| n.get())
+            .unwrap_or(1);
+        assert!(jobs >= 1, "the build runs at least one job");
+        assert!(
+            jobs <= cores,
+            "the build runs no more jobs than the machine has cores ({jobs} of {cores})"
+        );
     }
 
     #[test]
