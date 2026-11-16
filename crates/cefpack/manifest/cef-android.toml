@@ -37,6 +37,11 @@ min_sdk = 29
 # The NDK that has to build the engine.  `cefpack plan` refuses a host whose
 # NDK carries another version.
 ndk_version = "27.2.12479018"
+# The NDK is published under a tag, and the tag is the name of the archive:
+# `android-ndk-r27c-linux.zip`.  The version and the tag name the same
+# release; the version is what the plan checks on the machine, the tag is
+# what the installer downloads.
+ndk_tag = "r27c"
 # The clang that the NDK ships.
 clang_version = "18"
 

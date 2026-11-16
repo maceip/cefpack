@@ -47,9 +47,9 @@ jobs:
       - name: the toolchain
         run: |
           sudo ./scripts/install-toolchain.sh /opt/trap-toolchain
-          echo "CEF_ANDROID_NDK=/opt/trap-toolchain/ndk-27.2.12479018" >> "$GITHUB_ENV"
-          echo "ANDROID_SDK_ROOT=/opt/trap-toolchain/android-sdk" >> "$GITHUB_ENV"
-          echo "CEF_DEPOT_TOOLS=/opt/trap-toolchain/depot_tools" >> "$GITHUB_ENV"
+          # The installer writes the environment it resolved; the paths are
+          # not repeated here, so that the two cannot drift apart.
+          cat /opt/trap-toolchain/env.sh >> "$GITHUB_ENV"
 
       - name: libclang
         # The generator of the Rust FFI needs libclang.

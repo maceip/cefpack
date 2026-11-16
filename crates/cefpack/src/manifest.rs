@@ -86,6 +86,14 @@ pub struct Target {
 pub struct Toolchain {
     /// The NDK version that the build has to use.
     pub ndk_version: String,
+    /// The tag of the NDK release.
+    ///
+    /// The NDK is published under a tag — `android-ndk-r27c-linux.zip` — and
+    /// the tag is the name of the archive that is downloaded.  The version
+    /// above is what the plan checks on the machine; the tag is what the
+    /// installer fetches.
+    #[serde(default)]
+    pub ndk_tag: String,
     /// The clang version that the NDK ships.
     pub clang_version: String,
 }
@@ -276,6 +284,15 @@ clang_version = "18"
 args = ["is_debug=false"]
 debug_args = ["is_debug=true"]
 "#
+    }
+
+    #[test]
+    fn the_pin_names_the_tag_of_the_ndk() {
+        // The NDK is published under a tag; the version and the tag name
+        // the same release, and the tag is the name of the archive.
+        let manifest = Manifest::read(&crate::manifest_path()).expect("the manifest");
+        assert_eq!(manifest.toolchain.ndk_tag, "r27c");
+        assert_eq!(manifest.toolchain.ndk_version, "27.2.12479018");
     }
 
     #[test]

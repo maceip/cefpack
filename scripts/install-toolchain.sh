@@ -27,10 +27,15 @@ read_manifest() {
 }
 
 NDK_VERSION="$(read_manifest ndk_version)"
+NDK_TAG="$(read_manifest ndk_tag)"
 ANDROID_API="$(sed -n 's/^min_sdk = \([0-9]*\)$/\1/p' "${MANIFEST}" | head -1)"
 
 if [ -z "${NDK_VERSION}" ]; then
   echo "the manifest names no NDK version" >&2
+  exit 1
+fi
+if [ -z "${NDK_TAG}" ]; then
+  echo "the manifest names no NDK tag" >&2
   exit 1
 fi
 
@@ -38,12 +43,17 @@ echo "the toolchain goes to ${TOOLCHAIN}"
 mkdir -p "${TOOLCHAIN}"
 
 # --- the NDK ---------------------------------------------------------------
+# The archive is named after the tag of the release — `android-ndk-r27c-linux.zip`
+# — and not after the version, which is why the tag is in the manifest.
 if [ ! -d "${TOOLCHAIN}/ndk-${NDK_VERSION}" ]; then
-  echo "the NDK ${NDK_VERSION}"
+  echo "the NDK ${NDK_VERSION} (${NDK_TAG})"
   curl -fsSL -o "${TOOLCHAIN}/ndk.zip" \
-    "https://dl.google.com/android/repository/android-ndk-${NDK_VERSION}-linux.zip"
+    "https://dl.google.com/android/repository/android-ndk-${NDK_TAG}-linux.zip"
   unzip -q "${TOOLCHAIN}/ndk.zip" -d "${TOOLCHAIN}"
   rm "${TOOLCHAIN}/ndk.zip"
+  # The archive carries the directory of the tag; the version is the name
+  # that the rest of the service uses.
+  mv "${TOOLCHAIN}/android-ndk-${NDK_TAG}" "${TOOLCHAIN}/ndk-${NDK_VERSION}"
 fi
 NDK="${TOOLCHAIN}/ndk-${NDK_VERSION}"
 
@@ -63,7 +73,7 @@ if [ ! -d "${SDK}/platforms/android-${ANDROID_API}" ]; then
   echo "the platform android-${ANDROID_API}"
   yes | "${SDK}/cmdline-tools/latest/bin/sdkmanager" --sdk_root="${SDK}" --licenses >/dev/null || true
   "${SDK}/cmdline-tools/latest/bin/sdkmanager" --sdk_root="${SDK}" \
-    "platform-tools" "platforms;android-${ANDROID_API}" >/dev/null
+    "platform-tools" "platforms;android-${ANDROID_API}" "platforms;android-35" >/dev/null
 fi
 
 # --- depot_tools -----------------------------------------------------------
