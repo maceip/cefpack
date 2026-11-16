@@ -49,15 +49,16 @@ pub struct Plan {
 impl Plan {
     /// The directory of the CEF checkout.
     ///
-    /// The CEF checkout is the solution of `gclient`: it carries the
-    /// `DEPS` file, and the Chromium sources land inside it.
+    /// The CEF layer sits inside the tree of Chromium, at `src/cef`: that
+    /// is the layout that the hook of CEF expects, and the one that its own
+    /// tooling builds.
     pub fn cef_dir(&self) -> PathBuf {
-        self.source_root.join("cef")
+        self.chromium_dir().join("cef")
     }
 
     /// The directory of the Chromium sources.
     pub fn chromium_dir(&self) -> PathBuf {
-        self.cef_dir().join("src")
+        self.source_root.join("src")
     }
 
     /// The output directory of the build, as an absolute path.
@@ -420,7 +421,7 @@ mod tests {
         let dir = tempfile::tempdir().expect("a temporary directory");
         let depot = dir.path().join("depot_tools");
         let source = dir.path().join("cef-source");
-        let buildtools = source.join("cef/src/buildtools/linux64");
+        let buildtools = source.join("src/buildtools/linux64");
         std::fs::create_dir_all(&depot).expect("can create");
         std::fs::create_dir_all(&buildtools).expect("can create");
         // depot_tools carries the wrapper, the checkout the program.

@@ -61,10 +61,10 @@ pub struct Source {
     pub branch: String,
     /// The commit of that branch that is built.
     ///
-    /// This is the pin.  The Chromium revision that belongs to it is not
-    /// written here: it lives in CEF's own `DEPS` file, which `gclient`
-    /// reads and verifies.  A bundle is therefore reproducible from the CEF
-    /// commit alone, and no third party archive is trusted at any point.
+    /// This is the pin of the CEF layer.  The Chromium revision that
+    /// belongs to it is pinned by the `[chromium]` section: CEF's own
+    /// `DEPS` file carries only its hook, and says nothing about the
+    /// revision of Chromium.
     pub commit: String,
 }
 
@@ -118,10 +118,15 @@ pub struct Gn {
 /// of the very engine that is shipped.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Chromium {
-    /// The Chromium revision.  CEF is built on top of a Chromium release
-    /// branch, so the branch head of that version is the revision.
+    /// The version of the Chromium release, which is also the name of its
+    /// tag.
     #[serde(rename = "ref")]
     pub revision: String,
+    /// The commit of that release.  This is the pin: the tree of Chromium
+    /// that the engine is built from.
+    pub commit: String,
+    /// The repository that carries it.
+    pub repo: String,
     /// The base URL of the source browser.
     pub base_url: String,
     /// The headers that are needed.
@@ -210,6 +215,14 @@ impl Manifest {
         if self.toolchain.ndk_version.is_empty() {
             bail!("the manifest names no NDK version");
         }
+        if self.chromium.commit.len() != 40
+            || !self.chromium.commit.chars().all(|c| c.is_ascii_hexdigit())
+        {
+            bail!(
+                "the Chromium commit must be a full 40 character git SHA, got {:?}",
+                self.chromium.commit
+            );
+        }
         if !self.chromium.revision.is_empty() {
             for header in &self.chromium.headers {
                 if header.sha256.len() != 64 {
@@ -263,12 +276,18 @@ schema = 1
 [engine]
 cef_version = "156.0.30+g6028375+chromium-156.0.8078.96"
 chromium_version = "156.0.8078.96"
-branch = "156"
+branch = "8078"
 
 [source]
 repo = "https://github.com/chromiumembedded/cef.git"
-branch = "156"
+branch = "8078"
 commit = "6028375f8b5c1a4a2b8a5c9e7d3f1a2b4c6d8e0f"
+
+[chromium]
+ref = "156.0.8078.96"
+commit = "2ad9b7f5a86846e0b264090723a6a78964bb84c4"
+repo = "https://chromium.googlesource.com/chromium/src.git"
+base_url = "https://raw.githubusercontent.com/chromium/chromium"
 
 [target]
 os = "android"

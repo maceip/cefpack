@@ -5,10 +5,14 @@
 #
 #   1. check the host — the NDK, the SDK and depot_tools;
 #   2. fetch the pinned sources and their dependencies;
-#   3. generate the C API headers;
-#   4. configure and compile the engine;
-#   5. audit the bundle and stage it for a Gradle build;
-#   6. generate the Rust FFI of the bundled engine.
+#   3. configure and compile the engine;
+#   4. collect the public headers of the engine that was built;
+#   5. stage the bundle for a Gradle build;
+#   6. audit the bundle — the verdict;
+#   7. generate the Rust FFI of the bundled engine.
+#
+# The order matters: the C API headers are written by the build, so the
+# headers are collected after it and not before.
 #
 # The script stops at the first step that fails.  A build that is half done
 # is worth nothing: the audit at the end is the verdict, and the verdict is
@@ -47,17 +51,17 @@ echo "== 1. the host =="
 echo "== 2. the sources =="
 "${CEFPACK}" fetch
 
-echo "== 3. the headers =="
-"${CEFPACK}" headers
-
-echo "== 4. the engine =="
+echo "== 3. the engine =="
 "${CEFPACK}" build
 
-echo "== 5. the verdict =="
-"${CEFPACK}" audit
+echo "== 4. the headers =="
+"${CEFPACK}" headers
 
-echo "== 6. the staging tree =="
+echo "== 5. the staging tree =="
 "${CEFPACK}" pack
+
+echo "== 6. the verdict =="
+"${CEFPACK}" audit
 
 echo "== 7. the Rust FFI =="
 # The FFI of the engine is a convenience for the consumer: the same API

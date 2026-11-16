@@ -105,7 +105,9 @@ pub fn build(plan: &Plan, debug: bool) -> Result<BuildOutput> {
 /// `cef/tools/patch.py`.  The step is skipped when the patch has already been
 /// applied, so it can be run again.
 fn apply_patches(plan: &Plan, cef_dir: &Path) -> Result<()> {
-    let patcher = cef_dir.join("tools/patch.py");
+    // The tool of CEF is `patcher.py`; it applies the patches of the
+    // `patch/` directory to the tree of Chromium.
+    let patcher = cef_dir.join("tools/patcher.py");
     if !patcher.is_file() {
         bail!(
             "{} has no patcher; the checkout is not a CEF checkout",
@@ -144,10 +146,11 @@ pub fn generate_capi_headers(cef_dir: &Path) -> Result<usize> {
         );
     }
 
+    // The tool is called without arguments, exactly as CEF's own hook calls
+    // it: it brings the translated files up to date with the headers.
     let output = Command::new("python3")
         .current_dir(cef_dir)
         .arg(&tool)
-        .arg(cef_dir)
         .output()
         .with_context(|| format!("cannot run {}", tool.display()))?;
 
@@ -158,10 +161,12 @@ pub fn generate_capi_headers(cef_dir: &Path) -> Result<usize> {
         .filter(|entry| entry.path().is_file())
         .count();
 
-    if generated < 10 {
+    // One header of the C API is kept in the repository; the others are
+    // written by the build, which knows the headers of the tree it builds.
+    // What has to be true here is that the directory is there at all.
+    if generated == 0 {
         bail!(
-            "the C API headers were not generated ({} files in {}); the tool said: {}",
-            generated,
+            "there is no C API header in {}; the tool said: {}",
             capi.display(),
             String::from_utf8_lossy(&output.stderr).trim()
         );
@@ -367,7 +372,23 @@ fn collect(plan: &Plan, debug: bool) -> Result<PathBuf> {
     // version that was built.  The directory is copied whole, because the
     // C API headers live in `include/capi/` and the wrapper header of
     // `cef-rs` includes them by that path.
+    //
+    // The C API headers are written by the build: it knows the headers of
+    // the tree it builds.  Their number is the verdict on that.
     copy_tree(&plan.cef_dir().join("include"), &layout.include())?;
+    let capi = layout.include().join("capi");
+    let count = std::fs::read_dir(&capi)
+        .with_context(|| format!("cannot read {}", capi.display()))?
+        .flatten()
+        .filter(|entry| entry.path().is_file())
+        .count();
+    if count < 10 {
+        bail!(
+            "the build wrote only {count} C API headers into {}; the C API is not complete",
+            capi.display()
+        );
+    }
+    log::info!("{count} C API headers are in {}", capi.display());
 
     // The libraries come from the build output.
     copy_file(&out_dir.join("libcef.so"), &layout.libcef())?;

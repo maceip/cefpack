@@ -40,67 +40,112 @@ impl SourceTree {
 /// The step is idempotent: a checkout that already carries the pinned commit
 /// is left alone, so an interrupted build can be resumed.
 pub fn fetch(plan: &Plan) -> Result<SourceTree> {
-    let repo = &plan.manifest.source.repo;
     let commit = &plan.manifest.source.commit;
     let cef_dir = plan.cef_dir();
 
     std::fs::create_dir_all(&plan.source_root)
         .with_context(|| format!("cannot create {}", plan.source_root.display()))?;
     // `gclient` reads the solution from the `.gclient` file of the directory
-    // that holds it.  The solution is the CEF checkout, and the Chromium
-    // sources land inside it, next to its `DEPS` file.
-    write_gclient(&plan.source_root, repo)?;
+    // that holds it.  The Chromium tree is the solution, and the CEF layer
+    // sits inside it at `src/cef` — the layout that CEF's own hook expects.
+    write_gclient(&plan.source_root, plan)?;
 
-    if cef_dir.join(".git").exists() {
-        let current = head_commit(&cef_dir)?;
-        if current == *commit {
-            log::info!("the CEF checkout is already at {commit}");
-            return Ok(SourceTree {
-                root: plan.source_root.clone(),
-                cef_dir,
-                commit: current,
-            });
-        }
-        log::info!("the CEF checkout is at {current}, fetching {commit}");
-        git(&cef_dir, &["fetch", "--depth", "1", "origin", commit])?;
-        git(&cef_dir, &["checkout", "--detach", commit])?;
-    } else {
-        log::info!("cloning {repo} at {commit}");
-        git(
-            &plan.source_root,
-            &["clone", "--filter=blob:none", "--no-checkout", repo, "cef"],
-        )?;
-        git(&cef_dir, &["fetch", "--depth", "1", "origin", commit])?;
-        git(&cef_dir, &["checkout", "--detach", commit])?;
-    }
+    // Chromium is the tree that the engine is built in.  It is pinned by its
+    // own commit, and it is checked out the same way as CEF.  It comes
+    // first: the layer of CEF is cloned into it.
+    checkout(
+        &plan.chromium_dir(),
+        &plan.manifest.chromium.repo,
+        &plan.manifest.chromium.commit,
+        "the Chromium checkout",
+    )?;
 
-    let current = head_commit(&cef_dir)?;
-    if current != *commit {
-        bail!(
-            "the checkout is at {current} but the manifest pins {commit}; refusing to build \
-             something that is not the pinned revision"
-        );
-    }
+    checkout(
+        &cef_dir,
+        &plan.manifest.source.repo,
+        commit,
+        "the CEF checkout",
+    )?;
 
     Ok(SourceTree {
         root: plan.source_root.clone(),
         cef_dir,
-        commit: current,
+        commit: commit.clone(),
     })
+}
+
+/// Check a repository out at the commit that the manifest pins.
+///
+/// The checkout is made without the history and without the blobs, and it is
+/// made at the commit itself: a branch could move, a commit cannot.  A
+/// checkout that already carries the commit is left alone, so an interrupted
+/// build can be resumed.
+fn checkout(dir: &Path, repo: &str, commit: &str, what: &str) -> Result<()> {
+    if dir.join(".git").exists() {
+        let current = head_commit(dir)?;
+        if current == commit {
+            log::info!("{what} is already at {commit}");
+            return Ok(());
+        }
+        log::info!("{what} is at {current}, fetching {commit}");
+        git(dir, &["fetch", "--depth", "1", "origin", commit])?;
+        git(dir, &["checkout", "--detach", commit])?;
+    } else {
+        log::info!("cloning {repo} at {commit}");
+        // The clone is made in the parent, with the name of the directory:
+        // `git clone` creates the directory itself.
+        let parent = dir.parent().unwrap_or_else(|| Path::new("."));
+        let name = dir
+            .file_name()
+            .unwrap_or_else(|| std::ffi::OsStr::new("checkout"));
+        std::fs::create_dir_all(parent)
+            .with_context(|| format!("cannot create {}", parent.display()))?;
+        git(
+            parent,
+            &[
+                "clone",
+                "--filter=blob:none",
+                "--no-checkout",
+                repo,
+                &name.to_string_lossy(),
+            ],
+        )?;
+        git(dir, &["fetch", "--depth", "1", "origin", commit])?;
+        git(dir, &["checkout", "--detach", commit])?;
+    }
+
+    let current = head_commit(dir)?;
+    if current != commit {
+        bail!(
+            "{what} is at {current} but the manifest pins {commit}; refusing to build something \
+             that is not the pinned revision"
+        );
+    }
+    Ok(())
 }
 
 /// Write the `.gclient` file of the solution.
 ///
-/// The file names the CEF checkout as the solution and says that the
-/// repository is *not* managed by `gclient`: the commit of the checkout is
-/// pinned by this service, and `gclient` is there for the dependencies that
-/// the `DEPS` file names.
-pub fn write_gclient(root: &Path, repo: &str) -> Result<()> {
+/// The file names two solutions: the Chromium tree, and the CEF layer that
+/// sits inside it at `src/cef`.  CEF's own `DEPS` file carries the hook
+/// that patches Chromium and writes the files of the C API, and that hook
+/// expects exactly this layout.
+///
+/// Neither solution is *managed* by `gclient`: the commits are pinned by
+/// this service, and `gclient` is here for the dependencies that the `DEPS`
+/// files name.  The form of the file is the one that CEF's own tooling
+/// writes.
+pub fn write_gclient(root: &Path, plan: &Plan) -> Result<()> {
     let path = root.join(".gclient");
+    let chromium_repo = &plan.manifest.chromium.repo;
+    let cef_repo = &plan.manifest.source.repo;
     let content = format!(
-        "solutions = [\n  {{\n    \"name\": \"cef\",\n    \"url\": \"{repo}\",\n    \
-         \"deps_file\": \"DEPS\",\n    \"managed\": False,\n    \"custom_deps\": {{}},\n    \
-         \"custom_vars\": {{}},\n  }},\n]\n"
+        "solutions = [\n  {{\n    'managed': False,\n    'name': 'src',\n    'url': '{chromium_repo}',\n    \
+         'custom_vars': {{\n      'checkout_pgo_profiles': False,\n      'source_tarball': False,\n      \
+         'siso_version': 'latest',\n    }},\n    'custom_deps': {{}},\n    'deps_file': 'DEPS',\n    \
+         'safesync_url': '',\n  }},\n  {{\n    'managed': False,\n    'name': 'src/cef',\n    \
+         'url': '{cef_repo}',\n    'deps_file': 'DEPS',\n    'custom_deps': {{}},\n    \
+         'custom_vars': {{}},\n  }},\n]\n"
     );
     std::fs::write(&path, content).with_context(|| format!("cannot write {}", path.display()))?;
     log::info!("the solution is written to {}", path.display());
@@ -237,6 +282,8 @@ fn path_with_depot_tools(plan: &Plan) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::manifest::Manifest;
+    use crate::plan::Tool;
 
     #[test]
     fn the_head_commit_of_a_repository_is_read() {
@@ -302,26 +349,69 @@ mod tests {
     }
 
     #[test]
-    fn the_solution_names_the_cef_checkout_and_leaves_it_to_this_service() {
+    fn the_solution_names_chromium_and_the_cef_layer_inside_it() {
         let dir = tempfile::tempdir().expect("a temporary directory");
-        write_gclient(dir.path(), "https://github.com/chromiumembedded/cef.git")
-            .expect("the solution is written");
+        let plan = plan_for_the_test();
+        write_gclient(dir.path(), &plan).expect("the solution is written");
         let text = std::fs::read_to_string(dir.path().join(".gclient")).expect("can read");
         assert!(
-            text.contains("\"name\": \"cef\""),
-            "the solution is named cef"
+            text.contains("'name': 'src'"),
+            "the tree of Chromium is the solution"
         );
         assert!(
-            text.contains("\"deps_file\": \"DEPS\""),
-            "the solution reads the DEPS of CEF"
+            text.contains("'name': 'src/cef'"),
+            "the layer of CEF sits inside it, where the hook of CEF expects it"
         );
         assert!(
-            text.contains("\"managed\": False"),
-            "the repository is not managed by gclient: this service pins it"
+            text.contains("'deps_file': 'DEPS'"),
+            "the solutions read the DEPS files"
+        );
+        assert!(
+            text.contains("'managed': False"),
+            "the repositories are not managed by gclient: this service pins them"
         );
         assert!(
             text.contains("https://github.com/chromiumembedded/cef.git"),
-            "the solution names the repository"
+            "the solution names the repository of CEF"
         );
+        assert!(
+            text.contains("https://chromium.googlesource.com/chromium/src.git"),
+            "the solution names the repository of Chromium"
+        );
+    }
+
+    /// A plan that carries the repositories of the manifest, for the tests
+    /// that write the solution.
+    fn plan_for_the_test() -> Plan {
+        let manifest = Manifest::read(
+            &Path::new(env!("CARGO_MANIFEST_DIR")).join("manifest/cef-android.toml"),
+        )
+        .expect("the manifest of the crate is readable");
+        Plan {
+            manifest,
+            source_root: PathBuf::from("cef-source"),
+            out_dir: PathBuf::from("cef-out"),
+            bundle_dir: PathBuf::from("cef-bundle"),
+            ndk: Tool {
+                name: "ndk",
+                path: PathBuf::from("/nonexistent/ndk"),
+                version: None,
+            },
+            sdk: Tool {
+                name: "sdk",
+                path: PathBuf::from("/nonexistent/sdk"),
+                version: None,
+            },
+            depot_tools: Tool {
+                name: "depot_tools",
+                path: PathBuf::from("/nonexistent/depot_tools"),
+                version: None,
+            },
+            git: Tool {
+                name: "git",
+                path: PathBuf::from("/usr/bin/git"),
+                version: None,
+            },
+        }
     }
 }

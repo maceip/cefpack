@@ -17,12 +17,14 @@ schema = 1
 # Chromium revision that CEF tracks.
 cef_version = "156.0.30+g6028375+chromium-156.0.8078.96"
 chromium_version = "156.0.8078.96"
-# The branch the revision belongs to.
-branch = "156"
+# The branch the revision belongs to.  The branches of CEF carry the number
+# of the Chromium revision they follow, not the version of Chromium: this
+# one follows Chromium 156.0.8078.96, and it is called 8078.
+branch = "8078"
 
 [source]
 repo = "https://github.com/chromiumembedded/cef.git"
-branch = "156"
+branch = "8078"
 # The pinned revision.  `cefpack fetch` checks this out and refuses to build
 # anything else.
 commit = "6028375a4532fb89d23b58635f5c0d3a82c93959"
@@ -80,9 +82,14 @@ debug_args = [
 # pinned, so that the bindings are generated against the headers of the very
 # engine that is shipped.
 [chromium]
-# CEF is built on top of a Chromium release branch; the branch head of that
-# version is the revision that the engine is built from.
+# CEF is built on top of a Chromium release.  The version names its tag and
+# the commit is the pin: the tree that the engine is built from.
+#
+# CEF's own DEPS file does not name it — that file carries only the hook
+# that patches Chromium — so the pin belongs here.
 ref = "156.0.8078.96"
+commit = "2ad9b7f5a86846e0b264090723a6a78964bb84c4"
+repo = "https://chromium.googlesource.com/chromium/src.git"
 base_url = "https://raw.githubusercontent.com/chromium/chromium"
 
 [[chromium.headers]]
