@@ -1,0 +1,31 @@
+[workspace]
+resolver = "2"
+members = ["crates/cefpack"]
+
+# The service is the only member of this workspace.  It has no dependency on
+# the browser it serves: it builds the engine, and it hands the engine over.
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.82"
+license = "Apache-2.0 OR MIT"
+repository = "https://github.com/maceip/cefpack"
+
+[workspace.dependencies]
+anyhow = "1"
+log = "0.4"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+toml = "0.8"
+ureq = { version = "2", features = ["tls"] }
+tar = "0.4"
+flate2 = "1"
+xz2 = "0.1"
+walkdir = "2"
+which = "7"
+zip = { version = "2", default-features = false, features = ["deflate"] }
+bindgen = "0.71"
+
+[profile.release]
+strip = true

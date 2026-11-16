@@ -1,0 +1,16 @@
+# The build
+/target
+/cef-source
+/cef-out
+/cef-bundle
+/cef-staging
+*.tar.gz
+*.sha256
+
+# The coverage
+/lcov.info
+/coverage/
+
+# The editors
+.DS_Store
+*.swp

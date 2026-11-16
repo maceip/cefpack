@@ -1,0 +1,39 @@
+[package]
+name = "cefpack"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Builds the Chromium Embedded Framework for Android from its own sources, with the Android NDK, and composes a CEF-shaped bundle out of it"
+publish = false
+
+[[bin]]
+name = "cefpack"
+path = "src/bin/cefpack.rs"
+
+[dependencies]
+anyhow = { workspace = true }
+log = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+toml = { workspace = true }
+ureq = { workspace = true }
+tar = { workspace = true }
+flate2 = { workspace = true }
+xz2 = { workspace = true }
+walkdir = { workspace = true }
+which = { workspace = true }
+zip = { workspace = true }
+bindgen = { workspace = true, optional = true }
+
+[features]
+default = []
+# The generator of the Rust FFI.  It needs libclang at run time, so it is not
+# part of the default build: the service that only fetches, builds and audits
+# an engine must work on a machine that has no clang.
+bindgen = ["dep:bindgen"]
+
+[dev-dependencies]
+tempfile = "3"

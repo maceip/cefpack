@@ -1,0 +1,13 @@
+cefpack — the CEF bundling service for Android
+Copyright the contributors of this repository.
+
+This product includes software developed by the Chromium Embedded Framework
+project (https://github.com/chromiumembedded/cef), which is built by this
+tooling but is not part of it.  Chromium Embedded Framework is licensed under
+the GNU Lesser General Public License, version 3 or later; the licence
+travels with every bundle that this tooling produces, as LICENSE.txt inside
+the bundle.
+
+Chromium itself is developed by the Chromium project and the Google
+contributors; it is under the licences that Chromium carries, reproduced in
+the NOTICE of the engine.
