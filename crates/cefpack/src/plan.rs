@@ -167,18 +167,51 @@ impl Plan {
             ),
         }
 
-        // depot_tools has to carry the three programs the build drives.
-        for tool in ["gclient", "gn", "ninja"] {
-            let path = self.depot_tools.path.join(tool);
-            if !path.is_file() {
-                bail!(
-                    "depot_tools at {} has no {tool}; the build cannot run",
-                    self.depot_tools.path.display()
-                );
+        // depot_tools has to carry gclient.  `gn` and `ninja` are a different
+        // matter: a modern depot_tools ships only wrappers for them, and the
+        // programs themselves are fetched with the checkout, into its
+        // buildtools.  The build therefore looks in both places.
+        let gclient = self.depot_tools.path.join("gclient");
+        if !gclient.is_file() {
+            bail!(
+                "depot_tools at {} has no gclient; the build cannot run",
+                self.depot_tools.path.display()
+            );
+        }
+        // When the checkout is already there, the two programs have to be
+        // somewhere: a fetch that was cut short is an error, not a surprise
+        // three steps later.
+        if self.source_root.join("src").is_dir() {
+            for tool in ["gn", "ninja"] {
+                if self.build_tool(tool).is_none() {
+                    bail!(
+                        "neither depot_tools at {} nor the checkout at {} has {tool}; the \
+                         fetch of the sources was not finished",
+                        self.depot_tools.path.display(),
+                        self.source_root.display()
+                    );
+                }
             }
         }
 
         Ok(())
+    }
+
+    /// Locate `gn` or `ninja`.
+    ///
+    /// The checkout comes first: the programs that the checkout fetches are
+    /// the real ones, while the copies in depot_tools are wrappers that need
+    /// the real program to exist in the first place.
+    pub fn build_tool(&self, name: &str) -> Option<PathBuf> {
+        let in_checkout = self.source_root.join("src/buildtools/linux64").join(name);
+        if in_checkout.is_file() {
+            return Some(in_checkout);
+        }
+        let in_depot_tools = self.depot_tools.path.join(name);
+        if in_depot_tools.is_file() {
+            return Some(in_depot_tools);
+        }
+        None
     }
 
     /// The GN arguments of the build, with the host paths filled in.
@@ -303,6 +336,76 @@ fn tool_version(path: &Path) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A plan with the two directories that hold the tools, for the tests
+    /// that look for `gn` and `ninja`.
+    fn plan_with(depot_tools: &std::path::Path, source_root: &std::path::Path) -> Plan {
+        let manifest = Manifest::read(
+            &Path::new(env!("CARGO_MANIFEST_DIR")).join("manifest/cef-android.toml"),
+        )
+        .expect("the manifest of the crate is readable");
+        Plan {
+            manifest,
+            source_root: source_root.to_path_buf(),
+            out_dir: source_root.join("out"),
+            bundle_dir: source_root.join("bundle"),
+            ndk: Tool {
+                name: "ndk",
+                path: PathBuf::from("/nonexistent/ndk"),
+                version: None,
+            },
+            sdk: Tool {
+                name: "sdk",
+                path: PathBuf::from("/nonexistent/sdk"),
+                version: None,
+            },
+            depot_tools: Tool {
+                name: "depot_tools",
+                path: depot_tools.to_path_buf(),
+                version: None,
+            },
+            git: Tool {
+                name: "git",
+                path: PathBuf::from("/usr/bin/git"),
+                version: None,
+            },
+        }
+    }
+
+    #[test]
+    fn the_build_tools_come_from_the_checkout_when_depot_tools_has_only_wrappers() {
+        let dir = tempfile::tempdir().expect("a temporary directory");
+        let depot = dir.path().join("depot_tools");
+        let source = dir.path().join("cef-source");
+        let buildtools = source.join("src/buildtools/linux64");
+        std::fs::create_dir_all(&depot).expect("can create");
+        std::fs::create_dir_all(&buildtools).expect("can create");
+        // depot_tools carries the wrapper, the checkout the program.
+        std::fs::write(depot.join("gn"), "#!/bin/sh\n").expect("can write");
+        std::fs::write(buildtools.join("gn"), "#!/bin/sh\n").expect("can write");
+        std::fs::write(buildtools.join("ninja"), "#!/bin/sh\n").expect("can write");
+
+        let plan = plan_with(&depot, &source);
+        assert_eq!(
+            plan.build_tool("gn"),
+            Some(buildtools.join("gn")),
+            "the program of the checkout wins over the wrapper of depot_tools"
+        );
+        assert_eq!(plan.build_tool("ninja"), Some(buildtools.join("ninja")));
+    }
+
+    #[test]
+    fn the_build_tools_fall_back_to_depot_tools() {
+        let dir = tempfile::tempdir().expect("a temporary directory");
+        let depot = dir.path().join("depot_tools");
+        let source = dir.path().join("cef-source");
+        std::fs::create_dir_all(&depot).expect("can create");
+        std::fs::write(depot.join("ninja"), "#!/bin/sh\n").expect("can write");
+
+        let plan = plan_with(&depot, &source);
+        assert_eq!(plan.build_tool("ninja"), Some(depot.join("ninja")));
+        assert_eq!(plan.build_tool("gn"), None, "there is no gn anywhere");
+    }
 
     #[test]
     fn a_missing_tool_names_the_variable_that_fixes_it() {

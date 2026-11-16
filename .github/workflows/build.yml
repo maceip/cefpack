@@ -5,14 +5,18 @@
 # as a bundle.
 #
 # The build is heavy.  A checkout of Chromium, the build itself and its
-# output need roughly 150 GB of disk and a machine with more than 16 GB of
-# memory; a GitHub hosted runner has neither.  The job therefore runs on a
-# self-hosted runner that carries the label `cef-build`:
+# output need roughly 150 GB of disk and hours of CPU; a GitHub hosted runner
+# has neither.  The build therefore runs on a Limrun sandbox, which has a
+# terabyte of disk and dozens of cores:
 #
-#   x64, Linux, 150 GB of free disk, 32 GB of memory, git, python3, unzip
+#   x64, Linux, 1.2 TB of free disk, 96 cores, 249 GB of memory
 #
-# The sources and the output of the build are cached between the runs, so
-# only the first build pays for the checkout.
+# The machine that orchestrates the run is a GitHub runner, and it does
+# nothing but hold the key of the account and wait for the sandbox.
+#
+# The account is billed by the minute, so the workflow refuses to start when
+# there is not enough credit for the build, and the sandbox is deleted when
+# the run ends, whatever its outcome.
 
 name: Build CEF for Android
 
@@ -25,9 +29,6 @@ on:
         default: false
   push:
     tags: ["v*"]
-  schedule:
-    # Every Monday: pick up a new Chromium release if CEF has a branch for it.
-    - cron: "17 5 * * 1"
 
 permissions:
   contents: write
@@ -38,66 +39,46 @@ concurrency:
 
 jobs:
   build:
-    name: build the engine
-    runs-on: [self-hosted, linux, x64, cef-build]
-    timeout-minutes: 720
+    name: build the engine on Limrun
+    # The runner only orchestrates; the build itself runs on the sandbox.
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    env:
+      LIM_API_KEY: ${{ secrets.LIMRUN_API_KEY }}
+      LIMRUN_TOOLS_DIR: ${{ github.workspace }}/tools
+      # The build needs hours; the account has to carry that much credit.
+      CEF_MIN_CREDIT: "240"
     steps:
       - uses: actions/checkout@v4
 
-      - name: the toolchain
-        run: |
-          sudo ./scripts/install-toolchain.sh /opt/trap-toolchain
-          # The installer writes the environment it resolved; the paths are
-          # not repeated here, so that the two cannot drift apart.
-          cat /opt/trap-toolchain/env.sh >> "$GITHUB_ENV"
-
-      - name: libclang
-        # The generator of the Rust FFI needs libclang.
-        run: sudo apt-get update && sudo apt-get install -y libclang-dev
-
-      - name: the cache of the sources and of the output
-        uses: actions/cache@v4
+      - uses: actions/setup-node@v4
         with:
-          path: |
-            cef-source
-            cef-out
-          key: cef-build-${{ hashFiles('crates/cefpack/manifest/cef-android.toml') }}
-          restore-keys: |
-            cef-build-
+          node-version: "22"
 
       - name: the build
-        env:
-          DEPOT_TOOLS_UPDATE: "0"
-        run: |
-          source /opt/trap-toolchain/env.sh
-          ./scripts/build-android.sh
+        # The script checks the credit, creates the sandbox, synks the
+        # sources, runs the build, pulls the bundle back and deletes the
+        # sandbox.  It fails when the credit is too small, so that the build
+        # is never cut in half.
+        run: ./scripts/limrun-build.sh
 
       - name: the archive of the bundle
         run: |
-          tar -czf cef-android-bundle.tar.gz -C cef-bundle .
-          sha256sum cef-android-bundle.tar.gz > cef-android-bundle.tar.gz.sha256
-          cat cef-android-bundle.tar.gz.sha256
-
-      - name: the verdict on the bundle
-        # The audit of the bundle is the last word: it checks the machine of
-        # the engine, the symbols of the C API, the headers, the resources,
-        # the licences and the checksums.
-        run: |
-          source /opt/trap-toolchain/env.sh
-          ./target/release/cefpack audit
+          ls -la cef-bundle.tar.gz
+          cat cef-bundle.tar.gz.sha256
 
       - uses: actions/upload-artifact@v4
         with:
           name: cef-android-bundle
           path: |
-            cef-android-bundle.tar.gz
-            cef-android-bundle.tar.gz.sha256
+            cef-bundle.tar.gz
+            cef-bundle.tar.gz.sha256
           retention-days: 30
 
       - name: publish the release
         if: startsWith(github.ref, 'refs/tags/v') || inputs.publish
         run: |
           gh release create "${GITHUB_REF_NAME}" \
-            cef-android-bundle.tar.gz cef-android-bundle.tar.gz.sha256 \
+            cef-bundle.tar.gz cef-bundle.tar.gz.sha256 \
             --title "CEF for Android ${GITHUB_REF_NAME}" \
             --notes "The Chromium Embedded Framework for Android, built from the pinned sources.  See the bundle for the version of CEF, the version of Chromium and the API version of the C API."

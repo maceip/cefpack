@@ -60,11 +60,19 @@ echo "== 6. the staging tree =="
 "${CEFPACK}" pack
 
 echo "== 7. the Rust FFI =="
-"${CEFPACK}" bindgen || {
-  echo "the generator could not run; pass --from <bindings.rs> to use the bindings"
-  echo "of another target of the same API version"
-  exit 1
-}
+# The FFI of the engine is a convenience for the consumer: the same API
+# version can be reached with the bindings of another target, and the
+# consumer of this repository already carries them.  A machine without
+# libclang therefore loses the FFI, not the engine — and the build says so
+# instead of failing at the last step.
+if "${CEFPACK}" bindgen; then
+  echo "the FFI is in the bindings of the bundle"
+else
+  echo
+  echo "the FFI was not generated: the generator needs libclang, which this machine"
+  echo "does not carry.  The engine is built and audited; the bindings can be"
+  echo "regenerated anywhere with: cefpack bindgen --from <bindings.rs> <bundle>"
+fi
 
 echo
 echo "the bundle is in ${CEF_BUNDLE_DIR}"

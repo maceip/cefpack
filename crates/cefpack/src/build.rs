@@ -47,7 +47,13 @@ pub fn build(plan: &Plan, debug: bool) -> Result<BuildOutput> {
     let args = build_args(plan, debug);
     log::info!("gn gen with {args}");
 
-    let gn = plan.depot_tools.path.join("gn");
+    let gn = plan.build_tool("gn").ok_or_else(|| {
+        anyhow::anyhow!(
+            "no gn: neither depot_tools at {} nor the checkout at {} has it",
+            plan.depot_tools.path.display(),
+            plan.source_root.display()
+        )
+    })?;
     let status = Command::new(&gn)
         .current_dir(plan.source_root.join("src"))
         .args([
@@ -65,7 +71,13 @@ pub fn build(plan: &Plan, debug: bool) -> Result<BuildOutput> {
     // `libcef` is the engine and `libcef_dll_wrapper` is the C API shim.
     // Both are needed: the application links the shim, the shim calls the
     // engine.
-    let ninja = plan.depot_tools.path.join("ninja");
+    let ninja = plan.build_tool("ninja").ok_or_else(|| {
+        anyhow::anyhow!(
+            "no ninja: neither depot_tools at {} nor the checkout at {} has it",
+            plan.depot_tools.path.display(),
+            plan.source_root.display()
+        )
+    })?;
     let status = Command::new(&ninja)
         .current_dir(plan.out_dir.clone())
         .args([
@@ -507,9 +519,16 @@ fn copy_tree(source: &Path, destination: &Path) -> Result<()> {
 /// The PATH of the build, with depot_tools in front of it.
 fn path_with_depot_tools(plan: &Plan) -> String {
     let depot = plan.depot_tools.path.display().to_string();
+    // The wrappers of depot_tools look for the real programs in the PATH;
+    // the checkout carries them in its buildtools.
+    let buildtools = plan
+        .source_root
+        .join("src/buildtools/linux64")
+        .display()
+        .to_string();
     match std::env::var("PATH") {
-        Ok(current) if !current.is_empty() => format!("{depot}:{current}"),
-        _ => depot,
+        Ok(current) if !current.is_empty() => format!("{depot}:{buildtools}:{current}"),
+        _ => format!("{depot}:{buildtools}"),
     }
 }
 
