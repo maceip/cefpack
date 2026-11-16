@@ -46,8 +46,11 @@ jobs:
     env:
       LIM_API_KEY: ${{ secrets.LIMRUN_API_KEY }}
       LIMRUN_TOOLS_DIR: ${{ github.workspace }}/tools
-      # The build needs hours; the account has to carry that much credit.
-      CEF_MIN_CREDIT: "240"
+      # The balance of the account is reported in the log of the run.  It is
+      # not enforced: an account that is paid after the fact reports no
+      # minutes and still accepts the sandbox.  Set it to the minutes the
+      # build needs to make the balance a gate.
+      CEF_MIN_CREDIT: "0"
     steps:
       - uses: actions/checkout@v4
 

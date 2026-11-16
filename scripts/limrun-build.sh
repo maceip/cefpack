@@ -21,7 +21,8 @@
 #   LIM_API_KEY        the key of the account (required)
 #   LIMRUN_TOOLS_DIR   where the Limrun CLI is installed
 #   CEF_BUILD_TIMEOUT  how long the build may take, in seconds (default 6 h)
-#   CEF_MIN_CREDIT     the minutes of credit the build needs (default 240)
+#   CEF_MIN_CREDIT     the minutes of credit the build needs before it starts;
+#                      0 (the default) means that the balance is only reported
 
 set -euo pipefail
 
@@ -32,7 +33,7 @@ cd "${ROOT}"
 TOOLS_DIR="${LIMRUN_TOOLS_DIR:-${ROOT}/tools}"
 LIM="${TOOLS_DIR}/node_modules/.bin/lim"
 TIMEOUT="${CEF_BUILD_TIMEOUT:-21600}"
-MIN_CREDIT="${CEF_MIN_CREDIT:-240}"
+MIN_CREDIT="${CEF_MIN_CREDIT:-0}"
 # The command that runs in the sandbox.  The default is the build of the
 # engine; the override exists to run a part of it, or to test the round
 # trip without spending hours of credit.
@@ -54,15 +55,29 @@ if [ ! -x "${LIM}" ]; then
   )
 fi
 
-echo "== 1. the credit =="
-CREDIT="$(curl -sf -H "Authorization: Bearer ${LIM_API_KEY}" \
+echo "== 1. the account =="
+# The account is reported before the build starts: which organization it is,
+# how much credit it carries, and how much of that the build needs.  The
+# balance is not always the thing that decides whether a build may run —
+# an account that is paid after the fact reports no minutes and still
+# accepts the sandbox — so the gate is off unless it is asked for.
+ACCOUNT="$(curl -sf -H "Authorization: Bearer ${LIM_API_KEY}" \
   https://api.limrun.com/v1/whoami |
-  python3 -c 'import json,sys; print(json.load(sys.stdin)["organization"]["creditMinutes"])')"
-echo "the account has ${CREDIT} minutes of credit; the build needs ${MIN_CREDIT}"
-if [ "${CREDIT}" -lt "${MIN_CREDIT}" ]; then
-  echo "not enough credit: the build would be cut off halfway.  Top the account up" >&2
-  echo "(https://console.limrun.com) and run this again." >&2
-  exit 1
+  python3 -c 'import json,sys; o=json.load(sys.stdin)["organization"]; print("%s|%s|%s" % (o.get("displayName") or o["id"], o["id"], o["creditMinutes"]))')"
+ORG_NAME="${ACCOUNT%%|*}"
+REST="${ACCOUNT#*|}"
+ORG_ID="${REST%%|*}"
+CREDIT="${REST##*|}"
+echo "the account is '${ORG_NAME}' (${ORG_ID}); it carries ${CREDIT} minutes of credit"
+if [ "${MIN_CREDIT}" -gt 0 ]; then
+  echo "the build needs ${MIN_CREDIT} minutes of it"
+  if [ "${CREDIT}" -lt "${MIN_CREDIT}" ]; then
+    echo "not enough credit: the build would be cut off halfway.  Top the account up" >&2
+    echo "(https://console.limrun.com) and run this again." >&2
+    exit 1
+  fi
+else
+  echo "the balance is reported, not enforced: set CEF_MIN_CREDIT to enforce it"
 fi
 
 echo "== 2. the sandbox =="
