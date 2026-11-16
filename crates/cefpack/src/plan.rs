@@ -47,6 +47,35 @@ pub struct Plan {
 }
 
 impl Plan {
+    /// The directory of the CEF checkout.
+    ///
+    /// The CEF checkout is the solution of `gclient`: it carries the
+    /// `DEPS` file, and the Chromium sources land inside it.
+    pub fn cef_dir(&self) -> PathBuf {
+        self.source_root.join("cef")
+    }
+
+    /// The directory of the Chromium sources.
+    pub fn chromium_dir(&self) -> PathBuf {
+        self.cef_dir().join("src")
+    }
+
+    /// The output directory of the build, as an absolute path.
+    ///
+    /// `gn` and `ninja` resolve the path of the output relative to the
+    /// directory they run in — the Chromium sources — so a relative path of
+    /// the plan would put the output somewhere that the service does not
+    /// look at.
+    pub fn absolute_out_dir(&self) -> PathBuf {
+        if self.out_dir.is_absolute() {
+            self.out_dir.clone()
+        } else {
+            std::env::current_dir()
+                .unwrap_or_else(|_| PathBuf::from("."))
+                .join(&self.out_dir)
+        }
+    }
+
     /// Resolve the plan and check the environment.
     ///
     /// Every tool is located by an explicit environment variable first and
@@ -181,7 +210,7 @@ impl Plan {
         // When the checkout is already there, the two programs have to be
         // somewhere: a fetch that was cut short is an error, not a surprise
         // three steps later.
-        if self.source_root.join("src").is_dir() {
+        if self.chromium_dir().is_dir() {
             for tool in ["gn", "ninja"] {
                 if self.build_tool(tool).is_none() {
                     bail!(
@@ -203,7 +232,7 @@ impl Plan {
     /// the real ones, while the copies in depot_tools are wrappers that need
     /// the real program to exist in the first place.
     pub fn build_tool(&self, name: &str) -> Option<PathBuf> {
-        let in_checkout = self.source_root.join("src/buildtools/linux64").join(name);
+        let in_checkout = self.chromium_dir().join("buildtools/linux64").join(name);
         if in_checkout.is_file() {
             return Some(in_checkout);
         }
@@ -316,21 +345,35 @@ fn find_tool(
 }
 
 /// Ask a tool for its version.
+///
+/// A tool that cannot be started is not an error: the plan says where the
+/// tool is, and the version is a courtesy.  The attempt is repeated, because
+/// a machine that is busy or a program that was just written can refuse to
+/// start once and accept the next time.
 fn tool_version(path: &Path) -> Option<String> {
-    let output = std::process::Command::new(path)
-        .arg("--version")
-        .output()
-        .ok()?;
-    if !output.status.success() {
-        return None;
+    let mut last_error = None;
+    for attempt in 0..3 {
+        match std::process::Command::new(path).arg("--version").output() {
+            Ok(output) => {
+                if !output.status.success() {
+                    return None;
+                }
+                let text = String::from_utf8_lossy(&output.stdout);
+                let first = text.lines().next()?.trim().to_string();
+                return if first.is_empty() { None } else { Some(first) };
+            }
+            Err(error) => {
+                last_error = Some(error);
+                if attempt < 2 {
+                    std::thread::sleep(std::time::Duration::from_millis(50));
+                }
+            }
+        }
     }
-    let text = String::from_utf8_lossy(&output.stdout);
-    let first = text.lines().next()?.trim().to_string();
-    if first.is_empty() {
-        None
-    } else {
-        Some(first)
+    if let Some(error) = last_error {
+        log::debug!("cannot ask {} for its version: {error}", path.display());
     }
+    None
 }
 
 #[cfg(test)]
@@ -377,7 +420,7 @@ mod tests {
         let dir = tempfile::tempdir().expect("a temporary directory");
         let depot = dir.path().join("depot_tools");
         let source = dir.path().join("cef-source");
-        let buildtools = source.join("src/buildtools/linux64");
+        let buildtools = source.join("cef/src/buildtools/linux64");
         std::fs::create_dir_all(&depot).expect("can create");
         std::fs::create_dir_all(&buildtools).expect("can create");
         // depot_tools carries the wrapper, the checkout the program.
@@ -466,13 +509,31 @@ mod tests {
             "cefpack-test-tool",
             Kind::Executable,
             &[],
-            &[bin],
+            std::slice::from_ref(&bin),
             &["witness"],
         )
         .expect("the tool is there");
+        // The version of a tool is read by running it, so the environment
+        // has to be able to run a program.  When it cannot, the test says
+        // so instead of quietly passing.
+        let direct = std::process::Command::new(&tool)
+            .arg("--version")
+            .output()
+            .unwrap_or_else(|error| panic!("this environment cannot run a program: {error}"));
+        assert!(
+            direct.status.success(),
+            "the test tool must succeed: {}",
+            String::from_utf8_lossy(&direct.stderr)
+        );
+        let expected = String::from_utf8_lossy(&direct.stdout)
+            .lines()
+            .next()
+            .unwrap_or_default()
+            .trim()
+            .to_string();
         assert_eq!(
             found.version.as_deref(),
-            Some("cefpack-test-tool 1.2.3"),
+            Some(expected.as_str()),
             "the version of the tool is read"
         );
     }

@@ -88,7 +88,8 @@ The build needs a machine with roughly **150 GB of free disk**, 32 GB of
 memory, the NDK, the SDK and `depot_tools`. A GitHub hosted runner has
 neither the disk nor the memory; the job in
 [`.github/workflows/build.yml`](.github/workflows/build.yml) therefore runs on
-a self-hosted runner labelled `cef-build`.
+a **Limrun sandbox** — a machine of the account of this repository, with a
+terabyte of disk and dozens of cores. The runner only orchestrates the run.
 
 ```bash
 git clone https://github.com/maceip/cefpack
@@ -101,6 +102,18 @@ source /opt/trap-toolchain/env.sh
 # the build
 ./scripts/build-android.sh
 ```
+
+The same build, on a sandbox, without a machine of your own:
+
+```bash
+export LIM_API_KEY=...            # the key of the account
+./scripts/limrun-build.sh         # checks the credit, builds, pulls the bundle back
+```
+
+The account is billed by the minute. `scripts/limrun-build.sh` reads the
+credit before it starts and refuses to run when there is not enough of it, so
+that a build is never cut in half; the sandbox is deleted when the run ends,
+whatever its outcome.
 
 The build is four steps that take hours, not minutes:
 

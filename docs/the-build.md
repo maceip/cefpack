@@ -20,6 +20,31 @@ it.  The plan never guesses and never continues with the wrong NDK: a build
 with the wrong NDK fails hours later, in the middle of the compile, with a
 message that says nothing about the cause.
 
+`gn` and `ninja` are not in that table on purpose.  A current `depot_tools`
+carries only wrappers for them; the programs themselves are fetched with the
+checkout, into `src/buildtools/linux64`, and the service looks in both
+places.  The checkout comes first, because the wrapper refuses to run
+without the program it wraps.
+
+## The machine
+
+The build needs roughly 150 GB of disk and hours of CPU.  The machine that
+runs it is a **Limrun sandbox** of the account of this repository — measured
+at 1.3 TB of disk, 96 cores and 249 GB of memory — driven by
+`scripts/limrun-build.sh`.  That script
+
+1. reads the credit of the account and refuses to start a build that cannot
+   finish (the account is billed by the minute);
+2. creates the sandbox and syncs this repository into it;
+3. runs the build in it;
+4. pulls the bundle back;
+5. deletes the sandbox, whatever happened.
+
+The toolchain is installed *in* the sandbox by
+`scripts/install-toolchain.sh`: the NDK, the Android SDK, `depot_tools` and,
+when the machine has no Rust of its own, a Rust of its own.  A sandbox has
+no `sudo`, so the installer never needs it.
+
 ## 2. `fetch` — the sources
 
 CEF is a layer on top of Chromium.  The service checks out the pinned commit

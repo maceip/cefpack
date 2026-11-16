@@ -34,7 +34,7 @@ pub struct BuildOutput {
 /// machine wants; the release configuration is what a shipped application
 /// links against.
 pub fn build(plan: &Plan, debug: bool) -> Result<BuildOutput> {
-    let cef_dir = plan.source_root.join("cef");
+    let cef_dir = plan.cef_dir();
     if !cef_dir.join("libcef").is_dir() {
         bail!(
             "{} does not look like a CEF checkout; run `cefpack fetch` first",
@@ -47,6 +47,10 @@ pub fn build(plan: &Plan, debug: bool) -> Result<BuildOutput> {
     let args = build_args(plan, debug);
     log::info!("gn gen with {args}");
 
+    // The output directory is absolute: `gn` resolves a relative path
+    // against the directory it runs in, which is the Chromium sources.
+    let out = plan.absolute_out_dir();
+
     let gn = plan.build_tool("gn").ok_or_else(|| {
         anyhow::anyhow!(
             "no gn: neither depot_tools at {} nor the checkout at {} has it",
@@ -55,10 +59,10 @@ pub fn build(plan: &Plan, debug: bool) -> Result<BuildOutput> {
         )
     })?;
     let status = Command::new(&gn)
-        .current_dir(plan.source_root.join("src"))
+        .current_dir(plan.chromium_dir())
         .args([
             "gen",
-            plan.out_dir.to_string_lossy().as_ref(),
+            out.to_string_lossy().as_ref(),
             &format!("--args={args}"),
         ])
         .env("PATH", path_with_depot_tools(plan))
@@ -79,13 +83,8 @@ pub fn build(plan: &Plan, debug: bool) -> Result<BuildOutput> {
         )
     })?;
     let status = Command::new(&ninja)
-        .current_dir(plan.out_dir.clone())
-        .args([
-            "-C",
-            &plan.out_dir.to_string_lossy(),
-            "libcef",
-            "libcef_dll_wrapper",
-        ])
+        .current_dir(plan.chromium_dir())
+        .args(["-C", &out.to_string_lossy(), "libcef", "libcef_dll_wrapper"])
         .env("PATH", path_with_depot_tools(plan))
         .status()
         .with_context(|| format!("cannot run {}", ninja.display()))?;
@@ -350,16 +349,14 @@ pub fn headers(cef_dir: &Path, bundle: &Path, args: &[String]) -> Result<PathBuf
 /// The GN arguments of the build, as one string.
 fn build_args(plan: &Plan, debug: bool) -> String {
     let mut args = plan.gn_args(debug);
-    args.push(format!(
-        "cef_path=\"{}\"",
-        plan.source_root.join("cef").display()
-    ));
+    args.push(format!("cef_path=\"{}\"", plan.cef_dir().display()));
     args.join(" ")
 }
 
 /// Collect the build output into a bundle.
 fn collect(plan: &Plan, debug: bool) -> Result<PathBuf> {
     let layout = Layout::new(&plan.bundle_dir);
+    let out_dir = plan.absolute_out_dir();
     std::fs::create_dir_all(layout.root())
         .with_context(|| format!("cannot create {}", layout.root().display()))?;
     std::fs::create_dir_all(layout.include())?;
@@ -370,12 +367,12 @@ fn collect(plan: &Plan, debug: bool) -> Result<PathBuf> {
     // version that was built.  The directory is copied whole, because the
     // C API headers live in `include/capi/` and the wrapper header of
     // `cef-rs` includes them by that path.
-    copy_tree(&plan.source_root.join("cef/include"), &layout.include())?;
+    copy_tree(&plan.cef_dir().join("include"), &layout.include())?;
 
     // The libraries come from the build output.
-    copy_file(&plan.out_dir.join("libcef.so"), &layout.libcef())?;
+    copy_file(&out_dir.join("libcef.so"), &layout.libcef())?;
     for name in ["libcef_dll_wrapper.a", "libcef_dll_wrapper.a.a"] {
-        let source = plan.out_dir.join(name);
+        let source = out_dir.join(name);
         if source.is_file() {
             copy_file(&source, &layout.wrapper())?;
             break;
@@ -398,18 +395,18 @@ fn collect(plan: &Plan, debug: bool) -> Result<PathBuf> {
         "cef_100_percent.pak",
         "cef_200_percent.pak",
     ] {
-        let source = plan.out_dir.join(name);
+        let source = out_dir.join(name);
         if source.is_file() {
             copy_file(&source, &layout.resource(name))?;
         }
     }
-    let locales = plan.out_dir.join("locales");
+    let locales = out_dir.join("locales");
     if locales.is_dir() {
         copy_tree(&locales, &layout.locales())?;
     }
 
     // The licences come from the CEF checkout.
-    copy_file(&plan.source_root.join("cef/LICENSE.txt"), &layout.license())?;
+    copy_file(&plan.cef_dir().join("LICENSE.txt"), &layout.license())?;
 
     // The provenance.
     let manifest = BundleManifest {
@@ -522,7 +519,7 @@ fn path_with_depot_tools(plan: &Plan) -> String {
     // The wrappers of depot_tools look for the real programs in the PATH;
     // the checkout carries them in its buildtools.
     let buildtools = plan
-        .source_root
+        .chromium_dir()
         .join("src/buildtools/linux64")
         .display()
         .to_string();

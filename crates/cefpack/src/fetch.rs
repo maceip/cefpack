@@ -42,7 +42,14 @@ impl SourceTree {
 pub fn fetch(plan: &Plan) -> Result<SourceTree> {
     let repo = &plan.manifest.source.repo;
     let commit = &plan.manifest.source.commit;
-    let cef_dir = plan.source_root.join("cef");
+    let cef_dir = plan.cef_dir();
+
+    std::fs::create_dir_all(&plan.source_root)
+        .with_context(|| format!("cannot create {}", plan.source_root.display()))?;
+    // `gclient` reads the solution from the `.gclient` file of the directory
+    // that holds it.  The solution is the CEF checkout, and the Chromium
+    // sources land inside it, next to its `DEPS` file.
+    write_gclient(&plan.source_root, repo)?;
 
     if cef_dir.join(".git").exists() {
         let current = head_commit(&cef_dir)?;
@@ -59,8 +66,6 @@ pub fn fetch(plan: &Plan) -> Result<SourceTree> {
         git(&cef_dir, &["checkout", "--detach", commit])?;
     } else {
         log::info!("cloning {repo} at {commit}");
-        std::fs::create_dir_all(&plan.source_root)
-            .with_context(|| format!("cannot create {}", plan.source_root.display()))?;
         git(
             &plan.source_root,
             &["clone", "--filter=blob:none", "--no-checkout", repo, "cef"],
@@ -84,21 +89,38 @@ pub fn fetch(plan: &Plan) -> Result<SourceTree> {
     })
 }
 
+/// Write the `.gclient` file of the solution.
+///
+/// The file names the CEF checkout as the solution and says that the
+/// repository is *not* managed by `gclient`: the commit of the checkout is
+/// pinned by this service, and `gclient` is there for the dependencies that
+/// the `DEPS` file names.
+pub fn write_gclient(root: &Path, repo: &str) -> Result<()> {
+    let path = root.join(".gclient");
+    let content = format!(
+        "solutions = [\n  {{\n    \"name\": \"cef\",\n    \"url\": \"{repo}\",\n    \
+         \"deps_file\": \"DEPS\",\n    \"managed\": False,\n    \"custom_deps\": {{}},\n    \
+         \"custom_vars\": {{}},\n  }},\n]\n"
+    );
+    std::fs::write(&path, content).with_context(|| format!("cannot write {}", path.display()))?;
+    log::info!("the solution is written to {}", path.display());
+    Ok(())
+}
+
 /// Run `gclient sync` for the checkout.
 ///
 /// `gclient` reads the `DEPS` file of the CEF checkout and fetches Chromium
 /// and every dependency at the revision that the file names.
 pub fn sync(plan: &Plan, tree: &SourceTree) -> Result<()> {
     let gclient = plan.depot_tools.path.join("gclient");
-    let cef_dir = &tree.cef_dir;
 
-    log::info!("running gclient sync in {}", cef_dir.display());
+    log::info!("running gclient sync in {}", tree.root.display());
 
-    // The CEF checkout is a client of the Chromium checkout: the parent
-    // directory holds the Chromium sources and the `cef` directory holds the
-    // CEF layer.
+    // The command runs in the directory that holds the `.gclient` file: that
+    // is where the solution is described, and the Chromium sources land in
+    // the solution directory, next to the `DEPS` file of CEF.
     let status = Command::new(&gclient)
-        .current_dir(cef_dir)
+        .current_dir(&tree.root)
         .args([
             "sync",
             "--no-history",
@@ -277,5 +299,29 @@ mod tests {
         let dir = tempfile::tempdir().expect("a temporary directory");
         let error = head_commit(dir.path()).expect_err("there is no repository");
         assert!(error.to_string().contains("git rev-parse failed"));
+    }
+
+    #[test]
+    fn the_solution_names_the_cef_checkout_and_leaves_it_to_this_service() {
+        let dir = tempfile::tempdir().expect("a temporary directory");
+        write_gclient(dir.path(), "https://github.com/chromiumembedded/cef.git")
+            .expect("the solution is written");
+        let text = std::fs::read_to_string(dir.path().join(".gclient")).expect("can read");
+        assert!(
+            text.contains("\"name\": \"cef\""),
+            "the solution is named cef"
+        );
+        assert!(
+            text.contains("\"deps_file\": \"DEPS\""),
+            "the solution reads the DEPS of CEF"
+        );
+        assert!(
+            text.contains("\"managed\": False"),
+            "the repository is not managed by gclient: this service pins it"
+        );
+        assert!(
+            text.contains("https://github.com/chromiumembedded/cef.git"),
+            "the solution names the repository"
+        );
     }
 }
