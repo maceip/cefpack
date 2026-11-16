@@ -115,6 +115,10 @@ credit before it starts and refuses to run when there is not enough of it, so
 that a build is never cut in half; the sandbox is deleted when the run ends,
 whatever its outcome.
 
+The job asks for **240 minutes** of credit. The build itself takes two to
+five hours on the sandbox, so an account with about **400 minutes** of credit
+can run it with room to spare.
+
 The build is four steps that take hours, not minutes:
 
 | step | what it does | how long |
