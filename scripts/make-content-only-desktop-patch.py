@@ -42,11 +42,36 @@ EDITS = [
     ),
 ]
 
+# The places where the content layer reaches for the browser, in a list of
+# dependencies.  A list of GN has no items that are conditional, so the
+# item is taken out of the list and the list is given the dependency
+# again when the build is the build of the browser.
+IN_LISTS = [
+    (
+        "components/constrained_window/BUILD.gn",
+        '"//components/web_modal",',
+        [
+            "# The window of the modal is the window of the desktop.  A build",
+            "# of the content alone has no modal to show, and the component",
+            "# that shows it brings the user interface of the desktop with it.",
+        ],
+    ),
+    (
+        "ui/views/controls/webview/BUILD.gn",
+        '"//ui/web_dialogs",',
+        [
+            "# The dialog of the web is the dialog of the desktop.  A build of",
+            "# the content alone has no dialog of the web, and the component",
+            "# that shows it brings the user interface of the desktop with it.",
+        ],
+    ),
+]
+
 
 def main() -> int:
     root = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else ".").resolve()
     out = []
-    for name, needle, comment in EDITS:
+    for name, needle, comment in EDITS + IN_LISTS:
         try:
             source = subprocess.run(
                 ["git", "show", "HEAD:" + name],
@@ -65,11 +90,36 @@ def main() -> int:
             return 1
         at = hits[0]
         indent = lines[at][: len(lines[at]) - len(lines[at].lstrip())]
-        block = [indent + line for line in comment]
-        block.append(indent + "if (!cef_content_only) {")
-        block.append(indent + "  " + lines[at].strip())
-        block.append(indent + "}")
-        lines[at : at + 1] = block
+        if name in [edit[0] for edit in IN_LISTS]:
+            # The item is taken out of the list, and the list is given the
+            # dependency again when the build is the build of the browser.
+            opening = at
+            while opening > 0 and "= [" not in lines[opening]:
+                opening -= 1
+            if "= [" not in lines[opening]:
+                print(f"{name}: the list of the line {needle!r} is not found")
+                return 1
+            the_list = lines[opening].split("= [")[0].strip()
+            closing = at
+            while closing < len(lines) and lines[closing].strip() != "]":
+                closing += 1
+            if closing >= len(lines):
+                print(f"{name}: the list of the line {needle!r} has no end")
+                return 1
+            item = lines[at].strip().rstrip(",")
+            lines[at : at + 1] = []
+            closing -= 1
+            block = [""] + [indent + line for line in comment]
+            block.append(indent + "if (!cef_content_only) {")
+            block.append(indent + f"  {the_list} += [ {item} ]")
+            block.append(indent + "}")
+            lines[closing + 1 : closing + 1] = block
+        else:
+            block = [indent + line for line in comment]
+            block.append(indent + "if (!cef_content_only) {")
+            block.append(indent + "  " + lines[at].strip())
+            block.append(indent + "}")
+            lines[at : at + 1] = block
         changed = "\n".join(lines)
         diff = list(
             difflib.unified_diff(source.split("\n"), changed.split("\n"), lineterm="", n=3)

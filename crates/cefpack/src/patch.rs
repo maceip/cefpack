@@ -232,6 +232,15 @@ pub const CHROMIUM_CONTENT_ONLY_DESKTOP_PATCH: &str =
 pub const CHROMIUM_CONTENT_ONLY_ROOT_PATCH: &str =
     include_str!("../patches/chromium-android-content-only-root.patch");
 
+/// The patch that takes the two windows of the desktop out of the build of
+/// the content alone.
+///
+/// The modal of the constrained window and the dialog of the web view are
+/// the windows of the desktop, and both live in a file that asserts that it
+/// is not built for Android.
+pub const CHROMIUM_CONTENT_ONLY_WINDOWS_PATCH: &str =
+    include_str!("../patches/chromium-android-content-only-windows.patch");
+
 /// Apply a patch to a tree of sources.
 ///
 /// The step is idempotent: a tree that already carries the patch is left
@@ -414,6 +423,10 @@ mod tests {
                 "the content alone, the root",
                 CHROMIUM_CONTENT_ONLY_ROOT_PATCH,
             ),
+            (
+                "the content alone, the windows",
+                CHROMIUM_CONTENT_ONLY_WINDOWS_PATCH,
+            ),
         ];
         for (name, patch) in patches {
             assert!(
@@ -445,6 +458,10 @@ mod tests {
             (
                 "the content alone, the root",
                 CHROMIUM_CONTENT_ONLY_ROOT_PATCH,
+            ),
+            (
+                "the content alone, the windows",
+                CHROMIUM_CONTENT_ONLY_WINDOWS_PATCH,
             ),
         ];
         for (name, patch) in patches {

@@ -1,0 +1,43 @@
+diff --git a/components/constrained_window/BUILD.gn b/components/constrained_window/BUILD.gn
+--- a/components/constrained_window/BUILD.gn
++++ b/components/constrained_window/BUILD.gn
+@@ -21,12 +21,18 @@
+   deps = [
+     "//base",
+     "//components/guest_view/browser",
+-    "//components/web_modal",
+     "//content/public/browser",
+     "//ui/base/mojom",
+     "//ui/display",
+     "//ui/views",
+   ]
++
++    # The window of the modal is the window of the desktop.  A build
++    # of the content alone has no modal to show, and the component
++    # that shows it brings the user interface of the desktop with it.
++    if (!cef_content_only) {
++      deps += [ "//components/web_modal" ]
++    }
+   public_deps = [
+     # Skia headers are exposed in the public API.
+     "//skia",
+diff --git a/ui/views/controls/webview/BUILD.gn b/ui/views/controls/webview/BUILD.gn
+--- a/ui/views/controls/webview/BUILD.gn
++++ b/ui/views/controls/webview/BUILD.gn
+@@ -47,9 +47,15 @@
+     "//ui/events",
+     "//ui/events:events_base",
+     "//ui/gfx:native_ui_types",
+-    "//ui/web_dialogs",
+     "//url",
+   ]
++
++    # The dialog of the web is the dialog of the desktop.  A build of
++    # the content alone has no dialog of the web, and the component
++    # that shows it brings the user interface of the desktop with it.
++    if (!cef_content_only) {
++      deps += [ "//ui/web_dialogs" ]
++    }
+ 
+   public_deps = [
+     "//base",

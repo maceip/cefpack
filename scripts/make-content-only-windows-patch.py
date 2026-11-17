@@ -1,0 +1,141 @@
+#!/usr/bin/env python3
+"""Make the patch that takes the two windows of the desktop out of the build.
+
+The modal of the constrained window and the dialog of the web view are
+the windows of the desktop, and both live in a file that asserts that it
+is not built for Android.
+
+The patch is made from the files of the pinned revision — the ones that
+git holds — and never by hand: a header that counts its body wrongly
+makes git apply the patch in part and in silence.
+
+Run it in the root of the checkout of Chromium:
+
+    python3 scripts/make-content-only-windows-patch.py
+
+It writes `content-only-windows.patch` next to the script, and it says
+whether the patch applies to the tree as it is.
+"""
+
+import difflib
+import pathlib
+import subprocess
+import sys
+
+# The two places where the content layer reaches for the user interface of
+# the desktop.  Each of them is a target that Chromium has never built
+# for Android, and each of them asserts that it is not built for Android.
+EDITS = []
+
+# The places where the content layer reaches for the browser, in a list of
+# dependencies.  A list of GN has no items that are conditional, so the
+# item is taken out of the list and the list is given the dependency
+# again when the build is the build of the browser.
+IN_LISTS = [
+    (
+        "components/constrained_window/BUILD.gn",
+        '"//components/web_modal",',
+        [
+            "# The window of the modal is the window of the desktop.  A build",
+            "# of the content alone has no modal to show, and the component",
+            "# that shows it brings the user interface of the desktop with it.",
+        ],
+    ),
+    (
+        "ui/views/controls/webview/BUILD.gn",
+        '"//ui/web_dialogs",',
+        [
+            "# The dialog of the web is the dialog of the desktop.  A build of",
+            "# the content alone has no dialog of the web, and the component",
+            "# that shows it brings the user interface of the desktop with it.",
+        ],
+    ),
+]
+
+
+def main() -> int:
+    root = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else ".").resolve()
+    out = []
+    for name, needle, comment in EDITS + IN_LISTS:
+        try:
+            source = subprocess.run(
+                ["git", "show", "HEAD:" + name],
+                cwd=root,
+                capture_output=True,
+                text=True,
+                check=True,
+            ).stdout
+        except subprocess.CalledProcessError as error:
+            print(f"cannot read {name}: {error.stderr.strip()}")
+            return 1
+        lines = source.split("\n")
+        hits = [i for i, line in enumerate(lines) if needle in line]
+        if len(hits) != 1:
+            print(f"{name}: the line {needle!r} is there {len(hits)} times, not once")
+            return 1
+        at = hits[0]
+        indent = lines[at][: len(lines[at]) - len(lines[at].lstrip())]
+        if name in [edit[0] for edit in IN_LISTS]:
+            # The item is taken out of the list, and the list is given the
+            # dependency again when the build is the build of the browser.
+            opening = at
+            while opening > 0 and "= [" not in lines[opening]:
+                opening -= 1
+            if "= [" not in lines[opening]:
+                print(f"{name}: the list of the line {needle!r} is not found")
+                return 1
+            the_list = lines[opening].split("= [")[0].strip()
+            closing = at
+            while closing < len(lines) and lines[closing].strip() != "]":
+                closing += 1
+            if closing >= len(lines):
+                print(f"{name}: the list of the line {needle!r} has no end")
+                return 1
+            item = lines[at].strip().rstrip(",")
+            lines[at : at + 1] = []
+            closing -= 1
+            block = [""] + [indent + line for line in comment]
+            block.append(indent + "if (!cef_content_only) {")
+            block.append(indent + f"  {the_list} += [ {item} ]")
+            block.append(indent + "}")
+            lines[closing + 1 : closing + 1] = block
+        else:
+            block = [indent + line for line in comment]
+            block.append(indent + "if (!cef_content_only) {")
+            block.append(indent + "  " + lines[at].strip())
+            block.append(indent + "}")
+            lines[at : at + 1] = block
+        changed = "\n".join(lines)
+        diff = list(
+            difflib.unified_diff(source.split("\n"), changed.split("\n"), lineterm="", n=3)
+        )
+        if not diff:
+            print(f"{name}: nothing changed")
+            return 1
+        out.append(f"diff --git a/{name} b/{name}")
+        out.append(f"--- a/{name}")
+        out.append(f"+++ b/{name}")
+        out.extend(diff[2:])
+    out.append("")
+    patch = "\n".join(out)
+    here = pathlib.Path(__file__).resolve().parent
+    target = here / "content-only-windows.patch"
+    target.write_text(patch)
+    print(f"the patch is written: {target} ({len(patch)} bytes)")
+
+    check = subprocess.run(
+        ["git", "apply", "--check", str(target)],
+        cwd=root,
+        capture_output=True,
+        text=True,
+    )
+    if check.returncode == 0:
+        print("the patch applies to the tree as it is")
+        return 0
+    print("the patch does not apply to the tree as it is:")
+    print(check.stderr.strip())
+    return 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

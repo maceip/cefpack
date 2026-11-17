@@ -415,7 +415,26 @@ pub fn apply_chromium_patch(plan: &Plan) -> Result<()> {
         &["if (cef_content_only) {", "group(\"cef_content_only\")"],
     )?;
 
-    // The sixth patch of the service: the user interface of the desktop
+    // The sixth patch of the service: the two windows of the desktop that
+    // the content layer reaches for — the modal of the constrained window
+    // and the dialog of the web view.
+    patch::apply_patch(
+        &chromium_dir,
+        patch::CHROMIUM_CONTENT_ONLY_WINDOWS_PATCH,
+        "content-only-windows",
+    )?;
+    patch::verify(
+        &chromium_dir,
+        "components/constrained_window/BUILD.gn",
+        &["if (!cef_content_only) {", "\"//components/web_modal\""],
+    )?;
+    patch::verify(
+        &chromium_dir,
+        "ui/views/controls/webview/BUILD.gn",
+        &["if (!cef_content_only) {", "\"//ui/web_dialogs\""],
+    )?;
+
+    // The seventh patch of the service: the user interface of the desktop
     // browser, which the build of the content *reads* — through the
     // resources of the browser — and which is not built for Android.
     patch::apply_patch(
