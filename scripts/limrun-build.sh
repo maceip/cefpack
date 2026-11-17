@@ -99,8 +99,24 @@ echo "the sandbox is ${ID}"
 
 cleanup() {
   local exit_code=$?
-  echo "== 7. the sandbox is deleted =="
-  "${LIM}" gradle delete "${ID}" || true
+  # A sandbox that **worked** is deleted: the tree of the sources is ten
+  # gigabytes of somebody else's disk, and the bundle has been pulled out
+  # of it.
+  #
+  # A sandbox whose build **failed** is kept.  The checkout of the sources
+  # takes ten minutes and twenty-nine gigabytes, and a failure that is
+  # fixed and tried again should not pay for it twice: the next run finds
+  # the tree where it was, and `gclient` and the build continue from there.
+  # The sandbox ends by itself when its timeout is over.
+  if [ "${exit_code}" -eq 0 ]; then
+    echo "== 7. the sandbox is deleted =="
+    "${LIM}" gradle delete "${ID}" || true
+  else
+    echo "== 7. the sandbox is kept =="
+    echo "the build failed; the sandbox ${ID} holds the tree of the sources and"
+    echo "the logs of the build.  It ends by itself, and the next run reuses it:"
+    echo "  lim gradle sync ${ROOT} --id ${ID} && lim gradle run --id ${ID} --no-sync -- ./scripts/sandbox-build.sh"
+  fi
   exit "${exit_code}"
 }
 trap cleanup EXIT
@@ -123,12 +139,18 @@ echo "the build is running in the sandbox"
 echo "== 5. the log is read =="
 # The log is read until it says that the build is done.  A read that the
 # platform ends is simply read again.
+#
+# The memory of the container is read with every poll.  The container has
+# a ceiling of sixteen gigabytes and the kernel kills a process when the
+# ceiling is reached; the number that is read is the only account of how
+# close the build came to it, and it is the account that the earlier runs
+# did not have.
 DEADLINE=$(( $(date +%s) + TIMEOUT ))
 LAST=""
 DONE=0
 while [ "$(date +%s)" -lt "${DEADLINE}" ]; do
   sleep "${POLL}"
-  OUT="$("${LIM}" gradle run --id "${ID}" --no-sync --timeout 180 -- "tail -n 5 ${LOG} 2>/dev/null || true" 2>/dev/null || true)"
+  OUT="$("${LIM}" gradle run --id "${ID}" --no-sync --timeout 180 -- "tail -n 5 ${LOG} 2>/dev/null || true; echo \"memory: \$(awk '/^memory.current/{print \$2}' /sys/fs/cgroup/memory.current 2>/dev/null) of \$(awk '/^memory.max/{print \$2}' /sys/fs/cgroup/memory.max 2>/dev/null) bytes\"" 2>/dev/null || true)"
   if [ -n "${OUT}" ] && [ "${OUT}" != "${LAST}" ]; then
     printf '%s\n' "${OUT}"
     LAST="${OUT}"
