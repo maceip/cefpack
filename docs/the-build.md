@@ -134,17 +134,26 @@ the measured peak was 15.9 GB against a limit of 16 GB, with the processes
 themselves at 69 MB each.  The toolchain comes third, because the NDK and
 the SDK are three gigabytes of files that the checkout does not need.
 
-The page cache of the tree is **given back** at the end of the checkout, file
-by file, with `posix_fadvise(POSIX_FADV_DONTNEED)`.  The pages are not needed
-again — the tree is on the disk, and the kernel reads it back when it has to —
-and the kernel has no way of doing it for a whole tree: `/proc/sys/vm/drop_caches`
-needs the privilege of the superuser, and the service has no right to it.
+The page cache of the tree is **given back** while the tree is written.  The
+kernel of the machine has two hundred and forty-nine gigabytes of memory and
+the container of the build has sixteen, and the kernel sizes its own limits
+— how many pages may be dirty, how long a page may stay dirty — for the
+**machine**, and not for the container.  The pages of the checkout therefore
+pile up, and when the container reaches its ceiling the kernel kills a
+process: not the process that wrote the pages, but the largest one, which is
+the agent of the sandbox.  The build then talks to nothing.
 
-An earlier run died in the step that follows the checkout, with the agent of
-the sandbox unreachable: the ceiling of the container had been reached by the
-page cache of the tree, and the process that was killed was not the one that
-used the memory, but the largest one at that moment — the agent of the
-sandbox, which is what the service talks to.
+The service has no right to write to `/proc/sys/vm/drop_caches`, which needs
+the privilege of the superuser, and the container has no
+`/sys/fs/cgroup/memory.high` to write to either — both are read-only.  What
+is left is the way of the kernel that needs no privilege at all: for every
+file of the tree, start the writeback with `sync_file_range` and give the
+clean pages back with `posix_fadvise(POSIX_FADV_DONTNEED)`.  A thread does
+that every thirty seconds while the checkout runs, and the checkout itself
+does not know about it.
+
+Measured on this machine: two gigabytes written with the keeper in place
+leave the page cache of the machine **unchanged**.
 
 
 ## 3. `headers` — the C API

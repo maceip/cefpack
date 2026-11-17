@@ -10,6 +10,10 @@
 use std::{
     path::{Path, PathBuf},
     process::Command,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
 };
 
 use anyhow::{bail, Context, Result};
@@ -78,7 +82,7 @@ pub fn fetch(plan: &Plan) -> Result<SourceTree> {
     // of an earlier run: the process that was killed was not the one that
     // used the memory, but the one that happened to be the largest when
     // the ceiling was reached.
-    release_page_cache(&plan.source_root);
+    release_page_cache(&plan.source_root, false);
 
     Ok(SourceTree {
         root: plan.source_root.clone(),
@@ -93,7 +97,13 @@ pub fn fetch(plan: &Plan) -> Result<SourceTree> {
 /// has no right to write to `/proc/sys/vm/drop_caches`, which needs the
 /// privilege of the superuser.  The file-by-file way is `posix_fadvise`
 /// with `POSIX_FADV_DONTNEED`, and it needs no privilege at all.
-fn release_page_cache(root: &Path) {
+///
+/// The advice only holds for the pages that are **clean**: a page that is
+/// still waiting to be written to the disk cannot be given back, and the
+/// kernel does not give dirty pages back on its own when the container
+/// reaches its ceiling — it kills a process instead.  The writeback is
+/// therefore started with `sync_file_range` before the advice is given.
+fn release_page_cache(root: &Path, writeback: bool) {
     use std::os::unix::io::AsRawFd;
 
     let mut files = 0u64;
@@ -112,16 +122,18 @@ fn release_page_cache(root: &Path) {
             Err(_) => continue,
         };
         if let Ok(file) = std::fs::File::open(entry.path()) {
+            let fd = file.as_raw_fd();
+            if writeback {
+                // Start the writeback of the file without waiting for it.
+                unsafe {
+                    sync_file_range(fd, 0, metadata.len() as i64, SYNC_FILE_RANGE_WRITE);
+                }
+            }
             // The advice is a hint: a file that is open, or that the
             // kernel wants to keep, is not evicted.  That is fine, the
             // point is to give back what can be given back.
             unsafe {
-                posix_fadvise(
-                    file.as_raw_fd(),
-                    0,
-                    metadata.len() as i64,
-                    POSIX_FADV_DONTNEED,
-                );
+                posix_fadvise(fd, 0, metadata.len() as i64, POSIX_FADV_DONTNEED);
             }
             files += 1;
             bytes += metadata.len();
@@ -135,8 +147,56 @@ fn release_page_cache(root: &Path) {
     }
 }
 
+/// Run a piece of work while the page cache of the machine stays small.
+///
+/// The machine of the build has two hundred and forty-nine gigabytes of
+/// memory, and the container that runs in it has sixteen.  The kernel sizes
+/// its own limits — how many pages may be dirty, how long a page may stay
+/// dirty — for the **machine**, and not for the container: the pages of the
+/// checkout of the sources pile up, and when the container reaches its
+/// ceiling the kernel kills a process.  It does not kill the process that
+/// wrote the pages; it kills the largest one, and the agent of the sandbox
+/// is the largest one.  The build then talks to nothing.
+///
+/// The thread below gives the pages back while the work runs, and the work
+/// itself does not know about it.
+pub fn with_a_small_page_cache<T>(root: &Path, work: impl FnOnce() -> T) -> T {
+    let stop = Arc::new(AtomicBool::new(false));
+    let thread_root = root.to_path_buf();
+    let thread_stop = Arc::clone(&stop);
+    let handle = std::thread::Builder::new()
+        .name("cefpack-cache-keeper".to_string())
+        .spawn(move || {
+            while !thread_stop.load(Ordering::Relaxed) {
+                release_page_cache(&thread_root, true);
+                // The wait is in slices, so that the thread stops at once
+                // when the work is done.
+                for _ in 0..CACHE_KEEPER_INTERVAL {
+                    if thread_stop.load(Ordering::Relaxed) {
+                        return;
+                    }
+                    std::thread::sleep(std::time::Duration::from_secs(1));
+                }
+            }
+        });
+
+    let result = work();
+
+    stop.store(true, Ordering::Relaxed);
+    if let Ok(handle) = handle {
+        let _ = handle.join();
+    }
+    result
+}
+
 /// The advice of `posix_fadvise` that gives the pages of a file back.
 const POSIX_FADV_DONTNEED: i32 = 4;
+
+/// The advice of `sync_file_range` that starts the writeback.
+const SYNC_FILE_RANGE_WRITE: u32 = 2;
+
+/// How many seconds the keeper of the page cache waits between two passes.
+const CACHE_KEEPER_INTERVAL: u32 = 30;
 
 extern "C" {
     /// Give the pages of a file back to the kernel.
@@ -144,6 +204,12 @@ extern "C" {
     /// POSIX, and the only piece of the platform that this service needs
     /// and that the standard library does not have.
     fn posix_fadvise(fd: i32, offset: i64, len: i64, advice: i32) -> i32;
+
+    /// Start the writeback of the pages of a file.
+    ///
+    /// POSIX, and the companion of `posix_fadvise`: a page that is still
+    /// dirty cannot be given back, and this is what makes it clean.
+    fn sync_file_range(fd: i32, offset: i64, nbytes: i64, flags: u32) -> i32;
 }
 
 /// The patch that makes the tree of CEF accept the target of Android.
@@ -438,6 +504,19 @@ mod tests {
     use crate::plan::Tool;
 
     #[test]
+    fn the_work_runs_while_the_page_cache_is_kept_small() {
+        // The keeper of the page cache is not part of the work: the work
+        // gives its answer, and the answer is the answer of the caller.
+        let dir = tempfile::tempdir().expect("a temporary directory");
+        let answer = with_a_small_page_cache(dir.path(), || {
+            std::fs::write(dir.path().join("a-file"), b"x").expect("the file is written");
+            42
+        });
+        assert_eq!(answer, 42);
+        assert!(dir.path().join("a-file").is_file());
+    }
+
+    #[test]
     fn the_page_cache_of_the_tree_is_released() {
         // The release of the page cache is what keeps the checkout of the
         // sources from filling the memory of the machine: the pack of
@@ -453,7 +532,7 @@ mod tests {
         // The function has no answer to give: it is a hint to the kernel,
         // and the kernel may keep what it wants.  What it must do is walk
         // the tree without failing on it.
-        release_page_cache(dir.path());
+        release_page_cache(dir.path(), false);
     }
 
     #[test]

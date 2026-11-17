@@ -236,11 +236,17 @@ fn command_plan() -> Result<()> {
 /// Check out the pinned CEF sources.
 fn command_fetch() -> Result<()> {
     let plan = Plan::resolve(manifest()?)?;
-    let tree = fetch::fetch(&plan)?;
-    println!("the sources are at {}", tree.cef_dir.display());
-    fetch::sync(&plan, &tree)?;
-    println!("the dependencies are in sync");
-    Ok(())
+    // The checkout of the sources writes tens of gigabytes through the
+    // memory of the machine, and the container of the build has a ceiling
+    // of sixteen gigabytes.  The pages are given back while the checkout
+    // runs, so that the checkout does not reach the ceiling.
+    fetch::with_a_small_page_cache(&plan.source_root, || {
+        let tree = fetch::fetch(&plan)?;
+        println!("the sources are at {}", tree.cef_dir.display());
+        fetch::sync(&plan, &tree)?;
+        println!("the dependencies are in sync");
+        Ok::<(), anyhow::Error>(())
+    })
 }
 
 /// Configure and compile CEF for Android.
