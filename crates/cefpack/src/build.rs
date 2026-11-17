@@ -415,7 +415,22 @@ pub fn apply_chromium_patch(plan: &Plan) -> Result<()> {
         &["if (cef_content_only) {", "group(\"cef_content_only\")"],
     )?;
 
-    // The sixth patch of the service: the two windows of the desktop that
+    // The sixth patch of the service: the assertions of the files of the
+    // desktop.  It is applied before the patches that touch the files of
+    // the desktop, so that the give-back of a file that does not fit does
+    // not take the assertions with it.
+    patch::apply_patch(
+        &chromium_dir,
+        patch::CHROMIUM_CONTENT_ONLY_ASSERTS_PATCH,
+        "content-only-asserts",
+    )?;
+    patch::verify(
+        &chromium_dir,
+        "chrome/test/permissions/BUILD.gn",
+        &["assert(!is_android || cef_content_only)"],
+    )?;
+
+    // The seventh patch of the service: the two windows of the desktop that
     // the content layer reaches for — the modal of the constrained window
     // and the dialog of the web view.
     patch::apply_patch(

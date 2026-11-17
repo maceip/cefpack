@@ -241,6 +241,21 @@ pub const CHROMIUM_CONTENT_ONLY_ROOT_PATCH: &str =
 pub const CHROMIUM_CONTENT_ONLY_WINDOWS_PATCH: &str =
     include_str!("../patches/chromium-android-content-only-windows.patch");
 
+/// The patch that lets the build of the content alone be configured.
+///
+/// Chromium says in many files of the desktop that the file is a file of
+/// the desktop — `assert(is_win || is_mac || is_linux || is_chromeos)` and
+/// `assert(!is_android)`.  Both are right, and both stop the configuration
+/// of a build of the content alone: GN reads a file when a target in it is
+/// named, and it does not care whether the target is built.
+///
+/// The build of the content alone does not build those targets — it only
+/// reads the files, because the name of a target is in a list of
+/// dependencies or in a list of the names that may depend on it.  So the
+/// assertions are relaxed for that build, and only for it.
+pub const CHROMIUM_CONTENT_ONLY_ASSERTS_PATCH: &str =
+    include_str!("../patches/chromium-android-content-only-asserts.patch");
+
 /// Apply a patch to a tree of sources.
 ///
 /// The step is idempotent: a tree that already carries the patch is left
@@ -427,6 +442,10 @@ mod tests {
                 "the content alone, the windows",
                 CHROMIUM_CONTENT_ONLY_WINDOWS_PATCH,
             ),
+            (
+                "the content alone, the assertions",
+                CHROMIUM_CONTENT_ONLY_ASSERTS_PATCH,
+            ),
         ];
         for (name, patch) in patches {
             assert!(
@@ -462,6 +481,10 @@ mod tests {
             (
                 "the content alone, the windows",
                 CHROMIUM_CONTENT_ONLY_WINDOWS_PATCH,
+            ),
+            (
+                "the content alone, the assertions",
+                CHROMIUM_CONTENT_ONLY_ASSERTS_PATCH,
             ),
         ];
         for (name, patch) in patches {
