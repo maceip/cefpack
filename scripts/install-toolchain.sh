@@ -12,8 +12,12 @@
 # versions are read from the pinned manifest, so the toolchain and the build
 # can never drift apart.
 #
-# Usage: scripts/install-toolchain.sh [target directory]
+# Usage: scripts/install-toolchain.sh [target directory] [--rust-only]
 #        default: /opt/trap-toolchain
+#
+# With --rust-only the installer brings nothing but the compiler of the
+# service.  The checkout of the sources needs nothing else, and a container
+# that holds nothing but the compiler has the memory to carry it.
 
 set -euo pipefail
 
@@ -36,7 +40,14 @@ if [ -z "${MANIFEST}" ] || [ ! -f "${MANIFEST}" ]; then
   echo "cannot find the manifest of the build: set CEF_MANIFEST" >&2
   exit 1
 fi
-TOOLCHAIN="${1:-${TRAP_TOOLCHAIN:-/opt/trap-toolchain}}"
+TOOLCHAIN="${TRAP_TOOLCHAIN:-/opt/trap-toolchain}"
+RUST_ONLY=0
+for argument in "$@"; do
+  case "${argument}" in
+    --rust-only) RUST_ONLY=1 ;;
+    *) TOOLCHAIN="${argument}" ;;
+  esac
+done
 
 read_manifest() {
   # The manifest is TOML; the values this script needs are plain strings.
@@ -58,6 +69,8 @@ fi
 
 echo "the toolchain goes to ${TOOLCHAIN}"
 mkdir -p "${TOOLCHAIN}"
+
+
 
 # --- the NDK ---------------------------------------------------------------
 # The archive is named after the tag of the release — `android-ndk-r27c-linux.zip`
@@ -110,25 +123,27 @@ fi
 # The service itself is written in Rust, so the machine needs a compiler for
 # it.  A machine that has one keeps it; a machine that has none gets one from
 # rustup, into the toolchain, so that the whole toolchain stays in one place.
-RUST="${TOOLCHAIN}/rust"
-if ! command -v cargo >/dev/null 2>&1 && [ ! -x "${RUST}/bin/cargo" ]; then
-  echo "Rust"
-  curl -fsSL -o "${TOOLCHAIN}/rustup-init" https://static.rust-lang.org/rustup/dist/x86_64-unknown-linux-gnu/rustup-init
-  chmod +x "${TOOLCHAIN}/rustup-init"
-  RUSTUP_HOME="${RUST}" CARGO_HOME="${RUST}" "${TOOLCHAIN}/rustup-init" \
-    -y --profile minimal --default-toolchain stable --no-modify-path
-  rm "${TOOLCHAIN}/rustup-init"
-fi
-if [ -x "${RUST}/bin/cargo" ]; then
-  CARGO_HOME="${RUST}"
-  RUSTUP_HOME="${RUST}"
-  PATH="${RUST}/bin:${PATH}"
-elif command -v cargo >/dev/null 2>&1; then
-  CARGO_HOME="${CARGO_HOME:-${HOME}/.cargo}"
-else
-  echo "no Rust on this machine: the service is written in Rust" >&2
-  exit 1
-fi
+install_rust() {
+  RUST="${TOOLCHAIN}/rust"
+  if ! command -v cargo >/dev/null 2>&1 && [ ! -x "${RUST}/bin/cargo" ]; then
+    echo "Rust"
+    curl -fsSL -o "${TOOLCHAIN}/rustup-init" https://static.rust-lang.org/rustup/dist/x86_64-unknown-linux-gnu/rustup-init
+    chmod +x "${TOOLCHAIN}/rustup-init"
+    RUSTUP_HOME="${RUST}" CARGO_HOME="${RUST}" "${TOOLCHAIN}/rustup-init" \
+      -y --profile minimal --default-toolchain stable --no-modify-path
+    rm "${TOOLCHAIN}/rustup-init"
+  fi
+  if [ -x "${RUST}/bin/cargo" ]; then
+    CARGO_HOME="${RUST}"
+    RUSTUP_HOME="${RUST}"
+    PATH="${RUST}/bin:${PATH}"
+  elif command -v cargo >/dev/null 2>&1; then
+    CARGO_HOME="${CARGO_HOME:-${HOME}/.cargo}"
+  else
+    echo "no Rust on this machine: the service is written in Rust" >&2
+    exit 1
+  fi
+}
 
 # --- libclang --------------------------------------------------------------
 # The generator of the Rust FFI needs libclang.  A machine that has one
@@ -161,6 +176,7 @@ else
   exit 1
 fi
 
+write_environment() {
 cat > "${TOOLCHAIN}/env.sh" <<EOF
 export JAVA_HOME=\${JAVA_HOME:-${JAVA_HOME}}
 export ANDROID_HOME=${SDK}
@@ -174,6 +190,19 @@ export RUSTUP_HOME=\${RUSTUP_HOME:-${RUSTUP_HOME}}
 export LIBCLANG_PATH=\${LIBCLANG_PATH:-${LIBCLANG_PATH}}
 export PATH=\${CARGO_HOME}/bin:\${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin:\${CEF_DEPOT_TOOLS}:\${PATH}
 EOF
+}
+
+# The Rust is installed before anything else, because the service is
+# written in Rust; the rest of the toolchain is installed after the checkout
+# of the sources, because the container has to be empty for it.
+install_rust
+
+if [ "${RUST_ONLY}" = "1" ]; then
+  write_environment
+  echo
+  echo "done.  Run: source ${TOOLCHAIN}/env.sh"
+  exit 0
+fi
 
 echo
 echo "done.  Run: source ${TOOLCHAIN}/env.sh"

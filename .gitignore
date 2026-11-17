@@ -1,5 +1,6 @@
 # The build
 /target
+/build
 /cef-source
 /cef-out
 /cef-bundle

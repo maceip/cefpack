@@ -207,6 +207,13 @@ fn command_plan() -> Result<()> {
 
     match Plan::resolve(manifest) {
         Ok(plan) => {
+            if !plan.problems.is_empty() {
+                println!();
+                println!("the host is not ready:");
+                for problem in &plan.problems {
+                    println!("  - {problem}");
+                }
+            }
             println!();
             println!("NDK      {}", plan.ndk.path.display());
             println!("SDK      {}", plan.sdk.path.display());

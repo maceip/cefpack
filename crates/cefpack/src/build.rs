@@ -34,6 +34,14 @@ pub struct BuildOutput {
 /// machine wants; the release configuration is what a shipped application
 /// links against.
 pub fn build(plan: &Plan, debug: bool) -> Result<BuildOutput> {
+    // The build needs everything the plan reports as missing; the checkout
+    // of the sources needs none of it, and that is why the two are apart.
+    if !plan.problems.is_empty() {
+        bail!(
+            "this machine cannot build the engine:\n  - {}",
+            plan.problems.join("\n  - ")
+        );
+    }
     let cef_dir = plan.cef_dir();
     if !cef_dir.join("libcef").is_dir() {
         bail!(

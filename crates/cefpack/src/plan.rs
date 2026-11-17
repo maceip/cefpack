@@ -44,6 +44,11 @@ pub struct Plan {
     pub depot_tools: Tool,
     /// `git`.
     pub git: Tool,
+    /// What the machine is missing.
+    ///
+    /// The checkout of the sources needs none of it; the build needs all of
+    /// it.  The problems are reported by `plan` and refused by `build`.
+    pub problems: Vec<String>,
 }
 
 impl Plan {
@@ -106,27 +111,56 @@ impl Plan {
     /// error with the name of the variable that would fix it — not a warning
     /// that turns into a mysterious failure three steps later.
     pub fn resolve(manifest: Manifest) -> Result<Self> {
+        // A tool that is missing is a problem of the plan, not an error of
+        // the plan: the checkout of the sources needs nothing but git, and
+        // the machine that runs it may still have to fetch the toolchain.
+        // The build itself refuses to start with a problem.
+        let mut problems = Vec::new();
         let ndk = find_tool(
             "ndk",
             Kind::Root,
             &["CEF_ANDROID_NDK", "ANDROID_NDK_HOME", "ANDROID_NDK_ROOT"],
             &[PathBuf::from("/opt/android-ndk-r27c")],
             &["source.properties"],
-        )?;
+        )
+        .unwrap_or_else(|error| {
+            problems.push(error.to_string());
+            Tool {
+                name: "ndk",
+                path: PathBuf::new(),
+                version: None,
+            }
+        });
         let sdk = find_tool(
             "sdk",
             Kind::Root,
             &["ANDROID_SDK_ROOT", "ANDROID_HOME"],
             &[PathBuf::from("/opt/android-sdk")],
             &["platforms"],
-        )?;
+        )
+        .unwrap_or_else(|error| {
+            problems.push(error.to_string());
+            Tool {
+                name: "sdk",
+                path: PathBuf::new(),
+                version: None,
+            }
+        });
         let depot_tools = find_tool(
             "depot_tools",
             Kind::Root,
             &["CEF_DEPOT_TOOLS"],
             &[],
             &["gclient"],
-        )?;
+        )
+        .unwrap_or_else(|error| {
+            problems.push(error.to_string());
+            Tool {
+                name: "depot_tools",
+                path: PathBuf::new(),
+                version: None,
+            }
+        });
         let git = find_tool("git", Kind::Executable, &["CEF_GIT"], &[], &[])?;
 
         // The defaults are relative to the working directory: the service
@@ -145,13 +179,16 @@ impl Plan {
             sdk,
             depot_tools,
             git,
+            problems: Vec::new(),
         };
-        plan.check()?;
+        let mut plan = plan;
+        plan.check(&mut problems)?;
+        plan.problems = problems;
         Ok(plan)
     }
 
     /// Check the environment against the pinned manifest.
-    pub fn check(&self) -> Result<()> {
+    pub fn check(&self, problems: &mut Vec<String>) -> Result<()> {
         // The NDK carries its version in `source.properties`.
         let properties =
             std::fs::read_to_string(self.ndk.path.join("source.properties")).unwrap_or_default();
@@ -161,15 +198,15 @@ impl Plan {
             .map(|v| v.trim().to_string());
         match found {
             Some(version) if version == self.manifest.toolchain.ndk_version => {}
-            Some(version) => bail!(
+            Some(version) => problems.push(format!(
                 "the NDK at {} is version {version}, the manifest pins {}",
                 self.ndk.path.display(),
                 self.manifest.toolchain.ndk_version
-            ),
-            None => bail!(
+            )),
+            None => problems.push(format!(
                 "the NDK at {} does not carry a version in source.properties",
                 self.ndk.path.display()
-            ),
+            )),
         }
 
         // The clang of the NDK has to be the one the manifest names.
@@ -178,11 +215,11 @@ impl Plan {
             .path
             .join("toolchains/llvm/prebuilt/linux-x86_64/bin/clang");
         if !clang.is_file() {
-            bail!(
+            problems.push(format!(
                 "the NDK at {} has no clang at {}",
                 self.ndk.path.display(),
                 clang.display()
-            );
+            ));
         }
 
         // The SDK has to carry a platform that the application can be
@@ -207,16 +244,16 @@ impl Plan {
             Some(level) if level >= self.manifest.target.min_sdk => {
                 log::info!("the SDK carries the platform android-{level}");
             }
-            Some(level) => bail!(
+            Some(level) => problems.push(format!(
                 "the SDK at {} has only the platform android-{level}, the application needs \
                  android-{} or newer",
                 self.sdk.path.display(),
                 self.manifest.target.min_sdk
-            ),
-            None => bail!(
+            )),
+            None => problems.push(format!(
                 "the SDK at {} has no platform at all",
                 self.sdk.path.display()
-            ),
+            )),
         }
 
         // depot_tools has to carry gclient.  `gn` and `ninja` are a different
@@ -225,10 +262,10 @@ impl Plan {
         // buildtools.  The build therefore looks in both places.
         let gclient = self.depot_tools.path.join("gclient");
         if !gclient.is_file() {
-            bail!(
+            problems.push(format!(
                 "depot_tools at {} has no gclient; the build cannot run",
                 self.depot_tools.path.display()
-            );
+            ));
         }
         // When the checkout is already there, the two programs have to be
         // somewhere: a fetch that was cut short is an error, not a surprise
@@ -236,12 +273,12 @@ impl Plan {
         if self.chromium_dir().is_dir() {
             for tool in ["gn", "ninja"] {
                 if self.build_tool(tool).is_none() {
-                    bail!(
+                    problems.push(format!(
                         "neither depot_tools at {} nor the checkout at {} has {tool}; the \
                          fetch of the sources was not finished",
                         self.depot_tools.path.display(),
                         self.source_root.display()
-                    );
+                    ));
                 }
             }
         }
@@ -472,6 +509,7 @@ mod tests {
                 path: PathBuf::from("/usr/bin/git"),
                 version: None,
             },
+            problems: Vec::new(),
         }
     }
 

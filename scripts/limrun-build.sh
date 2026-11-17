@@ -37,7 +37,7 @@ MIN_CREDIT="${CEF_MIN_CREDIT:-0}"
 # The command that runs in the sandbox.  The default is the build of the
 # engine; the override exists to run a part of it, or to test the round
 # trip without spending hours of credit.
-BUILD_COMMAND="${CEF_BUILD_COMMAND:-./scripts/install-toolchain.sh \"\$HOME/trap-toolchain\" && . \"\$HOME/trap-toolchain/env.sh\" && ./scripts/build-android.sh && tar -czf cef-bundle.tar.gz -C cef-bundle .}"
+BUILD_COMMAND="${CEF_BUILD_COMMAND:-./scripts/build-android.sh && tar -czf cef-bundle.tar.gz -C cef-bundle .}"
 
 if [ -z "${LIM_API_KEY:-}" ]; then
   echo "no LIM_API_KEY: the account of the build is unknown" >&2

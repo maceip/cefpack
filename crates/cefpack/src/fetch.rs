@@ -417,6 +417,7 @@ mod tests {
                 path: PathBuf::from("/usr/bin/git"),
                 version: None,
             },
+            problems: Vec::new(),
         }
     }
 }
