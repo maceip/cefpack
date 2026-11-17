@@ -61,6 +61,9 @@ THE_DESKTOP = ("is_win", "is_mac", "is_linux", "is_chromeos")
 # patch are gone with it.
 ALREADY_PATCHED = {
     "BUILD.gn",
+    "components/constrained_window/BUILD.gn",
+    "ui/events/ozone/evdev/BUILD.gn",
+    "ui/views/controls/webview/BUILD.gn",
     "base/test/BUILD.gn",
     "build/config/BUILDCONFIG.gn",
     "build/toolchain/get_lld_read_workers.py",
@@ -163,17 +166,14 @@ def the_files(root: pathlib.Path):
 
 
 def the_source(root: pathlib.Path, path: pathlib.Path) -> str:
-    import subprocess
+    """The file as the tree holds it.
 
-    name = str(path.relative_to(root))
-    done = subprocess.run(
-        ["git", "show", "HEAD:" + name],
-        cwd=root,
-        capture_output=True,
-        text=True,
-        check=True,
-    )
-    return done.stdout
+    The tree that the service patches is the tree of CEF with the patches
+    of CEF on it, and the patches of CEF change many of the files of
+    Chromium.  A patch that is made against the files of the pinned
+    revision of Chromium does not fit that tree.
+    """
+    return path.read_text()
 
 
 def main() -> int:
