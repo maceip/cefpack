@@ -168,9 +168,44 @@ The result is a bundle that carries 393 headers, of which 161 are the C API.
 The service configures the build with GN and compiles it with Ninja:
 
 ```bash
-gn gen out/Release --args='target_os="android" target_cpu="arm64" is_android=true use_cef=true ...'
+gn gen out/Release --root=//cef:cef_android \
+    --args='target_os="android" target_cpu="arm64" is_android=true use_cef=true ...'
 ninja -C out/Release libcef libcef_dll_wrapper
 ```
+
+### The root of the build
+
+The root is **not** the root of Chromium.  The root of Chromium is
+`//:gn_all`, which configures every test of the tree, and one of those
+tests is not configured for Android:
+
+```text
+ERROR at //base/test/BUILD.gn:742:18: Item not found
+    configs -= [ "//build/config/android:hide_all_but_jni_onload" ]
+```
+
+The root is `//cef:cef_android`, a group that the patch of the service
+adds to the tree of CEF: the engine and the shim of the C API, and
+nothing else.  The group of CEF that is in the tree (`//cef:cef`) is the
+sample applications, not the engine.
+
+### The patch of the service
+
+CEF has no Android target, and the build says so in the only way it can.
+Its own `BUILD.gn` asserts three flags that Chromium turns off for
+Android:
+
+```text
+ERROR at //cef/BUILD.gn:255:1: Assertion failed.
+    assert(enable_print_preview)
+```
+
+The flags cannot simply be turned on: Chromium's own `grit` asserts the
+opposite, in the same build, so the two assertions cannot both hold.  The
+patch that the service carries relaxes the assertions of CEF for Android
+instead of turning on flags that Chromium refuses, and it adds the group
+that is the root of the build.  It is a diff against the pinned commit of
+CEF, it is applied to the tree after the checkout, and it is idempotent.
 
 The arguments come from the manifest and are printed before the build runs,
 so a wrong argument shows up in the log of the build rather than in a
