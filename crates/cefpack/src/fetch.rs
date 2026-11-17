@@ -67,11 +67,83 @@ pub fn fetch(plan: &Plan) -> Result<SourceTree> {
         "the CEF checkout",
     )?;
 
+    apply_android_patch(&cef_dir)?;
+
     Ok(SourceTree {
         root: plan.source_root.clone(),
         cef_dir,
         commit: commit.clone(),
     })
+}
+
+/// The patch that makes the tree of CEF accept the target of Android.
+///
+/// CEF has no Android target: its own `BUILD.gn` asserts three flags that
+/// Chromium turns off for Android, and the build of the engine stops with
+///
+/// ```text
+/// ERROR at //cef/BUILD.gn:255:1: Assertion failed.
+/// assert(enable_print_preview)
+/// ```
+///
+/// The flags cannot simply be turned on: Chromium's own `grit` asserts the
+/// opposite, in the same build,
+///
+/// ```text
+/// ERROR at //tools/grit/grit_args.gni:18:1: Assertion failed.
+/// assert(toolkit_views == ...)
+/// ```
+///
+/// so the two assertions cannot both hold for Android.  The patch lets the
+/// desktop-only flags be off on Android, which is what Chromium expects and
+/// what CEF's desktop targets need.
+///
+/// The patch is part of this service, it is applied to the tree of CEF after
+/// the checkout, and it is a diff against the pinned commit: a CEF that
+/// changes the lines it touches stops the build with a message that says
+/// so, instead of being built with the wrong flags.
+const ANDROID_PATCH: &str = include_str!("../patches/cef-android-gn-asserts.patch");
+
+/// Apply the patch of the service to the tree of CEF.
+///
+/// The step is idempotent: a tree that already carries the patch is left
+/// alone, so an interrupted build can be resumed.
+fn apply_android_patch(cef_dir: &Path) -> Result<()> {
+    let patch = cef_dir.join(".cefpack-android.patch");
+    std::fs::write(&patch, ANDROID_PATCH)
+        .with_context(|| format!("cannot write {}", patch.display()))?;
+
+    // `git apply --check` says whether the patch still fits the tree; when
+    // it does not, the tree of CEF is not the one this service knows.
+    let check = Command::new("git")
+        .current_dir(cef_dir)
+        .args(["apply", "--check"])
+        .arg(&patch)
+        .output()
+        .with_context(|| format!("cannot run git in {}", cef_dir.display()))?;
+    if check.status.success() {
+        let status = Command::new("git")
+            .current_dir(cef_dir)
+            .args(["apply"])
+            .arg(&patch)
+            .status()
+            .with_context(|| format!("cannot run git in {}", cef_dir.display()))?;
+        if !status.success() {
+            bail!("the patch of the service does not fit the tree of CEF");
+        }
+        log::info!("the patch of the service is applied to the tree of CEF");
+    } else {
+        let detail = String::from_utf8_lossy(&check.stderr).trim().to_string();
+        // A patch that is already applied is not an error: the checkout is
+        // resumable and the tree keeps what it has.
+        if detail.contains("already exists") || detail.contains("patch does not apply") {
+            log::info!("the tree of CEF already carries the patch of the service");
+        } else {
+            bail!("the patch of the service does not fit the tree of CEF: {detail}");
+        }
+    }
+    let _ = std::fs::remove_file(&patch);
+    Ok(())
 }
 
 /// Check a repository out at the commit that the manifest pins.
@@ -377,6 +449,32 @@ mod tests {
         let dir = tempfile::tempdir().expect("a temporary directory");
         let error = head_commit(dir.path()).expect_err("there is no repository");
         assert!(error.to_string().contains("git rev-parse failed"));
+    }
+
+    #[test]
+    fn the_patch_of_the_service_relaxes_the_assertions_of_cef_for_android() {
+        // The patch is a diff against the pinned commit of CEF.  It has to
+        // be a diff and not a description: a tree of CEF that changed the
+        // lines it touches must stop the build, and `git apply --check`
+        // is what says so.
+        assert!(
+            ANDROID_PATCH.starts_with("diff --git"),
+            "the patch is a diff"
+        );
+        for assertion in [
+            "assert(enable_print_preview)",
+            "assert(enable_widevine)",
+            "assert(toolkit_views)",
+        ] {
+            assert!(
+                ANDROID_PATCH.contains(&format!("-{assertion}")),
+                "{assertion} is relaxed by the patch"
+            );
+            assert!(
+                ANDROID_PATCH.contains(&format!("+{assertion} || is_android")),
+                "{assertion} is relaxed for Android"
+            );
+        }
     }
 
     #[test]

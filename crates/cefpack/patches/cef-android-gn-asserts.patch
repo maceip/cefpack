@@ -1,0 +1,26 @@
+diff --git a/BUILD.gn b/BUILD.gn
+index 2018b0d..7141a54 100644
+--- a/BUILD.gn
++++ b/BUILD.gn
+@@ -252,10 +252,10 @@ if (is_linux) {
+ #
+ 
+ # Enable support for Print Preview.
+-assert(enable_print_preview)
++assert(enable_print_preview || is_android)
+ 
+ # Enable support for Widevine CDM.
+-assert(enable_widevine)
++assert(enable_widevine || is_android)
+ 
+ if (is_mac || is_win) {
+   # Enable Widevine CDM host verification and storage ID.
+@@ -266,7 +266,7 @@ if (is_mac || is_win) {
+ }
+ 
+ # Enable Views UI framework.
+-assert(toolkit_views)
++assert(toolkit_views || is_android)
+ 
+ if (is_clang) {
+   # Don't use the chrome style plugin.
