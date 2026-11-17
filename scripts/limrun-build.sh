@@ -1,28 +1,34 @@
 #!/usr/bin/env bash
 # Build CEF for Android on a Limrun sandbox.
 #
-# The build is heavy: a checkout of Chromium, the build itself and its output
-# need about 150 GB of disk and hours of CPU.  A GitHub hosted runner has
-# neither, so the build runs on a Limrun Gradle sandbox, which has a
+# The build is heavy: a checkout of Chromium, the build itself and its
+# output need about 150 GB of disk and hours of CPU; a GitHub hosted runner
+# has neither.  The build therefore runs on a Limrun sandbox, which has a
 # terabyte of disk and dozens of cores.
+#
+# The build is started *detached*: the platform ends a command that runs for
+# a long time without saying anything, and a build that is killed with it
+# is a build that is lost.  A detached build keeps running, the log of it
+# is read from here, and the bundle is pulled back when the log says that
+# it is ready.
 #
 # The script does the whole round trip:
 #
 #   1. check the credit of the account — the build costs hours and the
-#      account is billed by the minute, so it fails closed when there is not
-#      enough of it;
+#      account is billed by the minute;
 #   2. create the sandbox and remember its id;
 #   3. sync this repository into it;
-#   4. run the build in it;
-#   5. pull the bundle back;
-#   6. delete the sandbox, whatever happened.
+#   4. start the build in it, detached;
+#   5. read the log of the build until it is done;
+#   6. pull the bundle back;
+#   7. delete the sandbox, whatever happened.
 #
 # Environment:
 #   LIM_API_KEY        the key of the account (required)
 #   LIMRUN_TOOLS_DIR   where the Limrun CLI is installed
 #   CEF_BUILD_TIMEOUT  how long the build may take, in seconds (default 6 h)
-#   CEF_MIN_CREDIT     the minutes of credit the build needs before it starts;
-#                      0 (the default) means that the balance is only reported
+#   CEF_MIN_CREDIT     the minutes of credit the build needs (0: report only)
+#   CEF_POLL           how long to wait between two reads of the log
 
 set -euo pipefail
 
@@ -34,10 +40,11 @@ TOOLS_DIR="${LIMRUN_TOOLS_DIR:-${ROOT}/tools}"
 LIM="${TOOLS_DIR}/node_modules/.bin/lim"
 TIMEOUT="${CEF_BUILD_TIMEOUT:-21600}"
 MIN_CREDIT="${CEF_MIN_CREDIT:-0}"
+POLL="${CEF_POLL:-60}"
 # The command that runs in the sandbox.  The default is the build of the
 # engine; the override exists to run a part of it, or to test the round
 # trip without spending hours of credit.
-BUILD_COMMAND="${CEF_BUILD_COMMAND:-./scripts/build-android.sh && tar -czf cef-bundle.tar.gz -C cef-bundle .}"
+BUILD_COMMAND="${CEF_BUILD_COMMAND:-./scripts/sandbox-build.sh}"
 
 if [ -z "${LIM_API_KEY:-}" ]; then
   echo "no LIM_API_KEY: the account of the build is unknown" >&2
@@ -51,11 +58,7 @@ if [ ! -x "${LIM}" ]; then
   (
     cd "${TOOLS_DIR}"
     [ -f package.json ] || printf '{"name":"cef-build-tools","private":true}\n' > package.json
-    # The versions are pinned to the pair that was run against this build:
-    # `lim 0.57.3` with `@limrun/api 0.73.2` ends the command that runs in
-    # the sandbox after about a minute, with an exit code of -1, and the
-    # build of the engine dies with it.  The pair below carries the
-    # checkout of Chromium to its end.
+    # The versions are pinned to the pair that was run against this build.
     npm install --no-audit --no-fund --save-exact "@limrun/api@0.73.1" "lim@0.57.1"
   )
 fi
@@ -102,7 +105,7 @@ echo "the sandbox is ${ID}"
 
 cleanup() {
   local exit_code=$?
-  echo "== 6. the sandbox is deleted =="
+  echo "== 7. the sandbox is deleted =="
   "${LIM}" gradle delete "${ID}" || true
   exit "${exit_code}"
 }
@@ -111,25 +114,45 @@ trap cleanup EXIT
 echo "== 3. the sources are synced =="
 "${LIM}" gradle sync "${ROOT}" --id "${ID}"
 
-echo "== 4. the build =="
-# The project is synced into a workspace of the sandbox, named after the
-# directory it was synced from.  The build script is the same one that a
-# developer runs by hand.
-REMOTE_ROOT="$("${LIM}" gradle run --id "${ID}" --no-sync --quiet --timeout 120 -- 'pwd' | tail -1)"
-# The path is the one of the sandbox, so it is checked as a path and not as
-# a directory of this machine.
-case "${REMOTE_ROOT}" in
-  /home/limrun/workspaces/*) ;;
-  *)
-    echo "the sandbox has no workspace at '${REMOTE_ROOT}'" >&2
-    exit 1
-    ;;
-esac
-echo "the build runs in ${REMOTE_ROOT}"
-"${LIM}" gradle run --id "${ID}" --no-sync --timeout "${TIMEOUT}" -- \
-  "cd '${REMOTE_ROOT}' && ${BUILD_COMMAND}"
+echo "== 4. the build is started =="
+# The build runs detached, and says in the log when it is done.  A command
+# that the platform ends takes the build with it; a detached one does not.
+"${LIM}" gradle run --id "${ID}" --no-sync --timeout 300 -- \
+  "cd '/home/limrun/workspaces/$(basename "${ROOT}")' && nohup bash -c '${BUILD_COMMAND}; echo \"CEF-BUILD-EXIT:\$?\"' > build.log 2>&1 &" || true
+echo "the build is running in the sandbox"
 
-echo "== 5. the bundle comes back =="
+echo "== 5. the log is read =="
+# The log is read until it says that the build is done.  A read that the
+# platform ends is simply read again.
+DEADLINE=$(( $(date +%s) + TIMEOUT ))
+LAST=""
+while [ "$(date +%s)" -lt "${DEADLINE}" ]; do
+  sleep "${POLL}"
+  OUT="$(("${LIM}" gradle run --id "${ID}" --no-sync --timeout 180 -- \
+    "tail -n 5 '/home/limrun/workspaces/$(basename "${ROOT}")/build.log' 2>/dev/null || echo ''" 2>/dev/null || echo '')"
+  if [ -n "${OUT}" ] && [ "${OUT}" != "${LAST}" ]; then
+    echo "${OUT}"
+    LAST="${OUT}"
+  fi
+  case "${OUT}" in
+    *CEF-BUILD-EXIT:0*)
+      echo "the build is done"
+      break
+      ;;
+    *CEF-BUILD-EXIT:*)
+      echo "the build failed" >&2
+      "${LIM}" gradle run --id "${ID}" --no-sync --timeout 180 -- \
+        "tail -n 40 '/home/limrun/workspaces/$(basename "${ROOT}")/build.log'" || true
+      exit 1
+      ;;
+  esac
+done
+if [ -z "${LAST}" ]; then
+  echo "the log of the build never came" >&2
+  exit 1
+fi
+
+echo "== 6. the bundle comes back =="
 "${LIM}" gradle pull-file "cef-bundle.tar.gz" "${ROOT}/cef-bundle.tar.gz" --id "${ID}"
 sha256sum "${ROOT}/cef-bundle.tar.gz" > "${ROOT}/cef-bundle.tar.gz.sha256"
 
