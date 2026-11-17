@@ -101,12 +101,20 @@ pub struct Toolchain {
 /// The GN arguments of the Chromium build.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Gn {
+    /// The root of the build: the target that `gn gen` configures.
+    #[serde(default = "default_root_target")]
+    pub root_target: String,
     /// The arguments that are always passed.
     #[serde(default)]
     pub args: Vec<String>,
     /// The arguments that are only passed for a debug build.
     #[serde(default)]
     pub debug_args: Vec<String>,
+}
+
+/// The root that is used when the manifest does not name one.
+fn default_root_target() -> String {
+    "//cef:cef".to_string()
 }
 
 /// The headers of Chromium that the C API of CEF needs.
@@ -245,6 +253,11 @@ impl Manifest {
     }
 
     /// The GN arguments of a build of the given kind.
+    /// The root of the build: the target that the configuration is made for.
+    pub fn root_target(&self) -> &str {
+        &self.gn.root_target
+    }
+
     pub fn gn_args(&self, debug: bool) -> Vec<String> {
         let mut args = self.gn.args.clone();
         if debug {

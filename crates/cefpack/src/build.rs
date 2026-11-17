@@ -71,6 +71,7 @@ pub fn build(plan: &Plan, debug: bool) -> Result<BuildOutput> {
         .args([
             "gen",
             out.to_string_lossy().as_ref(),
+            &format!("--root={}", plan.manifest.root_target()),
             &format!("--args={args}"),
         ])
         .env("PATH", path_with_depot_tools(plan))

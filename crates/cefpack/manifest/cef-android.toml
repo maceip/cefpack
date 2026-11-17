@@ -48,6 +48,17 @@ ndk_tag = "r27c"
 clang_version = "18"
 
 [gn]
+# The root of the build.  It is the group of CEF itself, and not the root of
+# Chromium: the root of Chromium is `//:gn_all`, which configures every
+# test of the tree, and one of those tests is not configured for Android:
+#
+#     ERROR at //base/test/BUILD.gn:742:18: Item not found
+#         configs -= [ "//build/config/android:hide_all_but_jni_onload" ]
+#
+# The group of CEF is what the build wants anyway: the engine, the shim of
+# the C API, and nothing else.
+root_target = "//cef:cef"
+
 # The arguments of the Chromium build.  `cefpack build` prints them before it
 # runs, so a wrong argument shows up in the log of the build.
 args = [
