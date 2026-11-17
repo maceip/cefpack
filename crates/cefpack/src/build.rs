@@ -458,6 +458,24 @@ pub fn apply_chromium_patch(plan: &Plan) -> Result<()> {
         "chrome/BUILD.gn",
         &["if (cef_content_only) {", "public_deps = []"],
     )?;
+
+    // The ninth patch of the service: the two places where the content
+    // layer reaches for the window of the desktop.
+    patch::apply_patch(
+        &chromium_dir,
+        patch::CHROMIUM_CONTENT_ONLY_DESKTOP_PATCH,
+        "content-only-desktop",
+    )?;
+    patch::verify(
+        &chromium_dir,
+        "extensions/browser/BUILD.gn",
+        &["if (!cef_content_only) {", "\"//components/web_modal\""],
+    )?;
+    patch::verify(
+        &chromium_dir,
+        "chrome/browser/media/webrtc/BUILD.gn",
+        &["if (!cef_content_only) {", "browser_widget"],
+    )?;
     Ok(())
 }
 

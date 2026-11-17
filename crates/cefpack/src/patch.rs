@@ -211,6 +211,15 @@ pub const CHROMIUM_CONTENT_ONLY_PATCH: &str =
 pub const CHROMIUM_CONTENT_ONLY_BROWSER_PATCH: &str =
     include_str!("../patches/chromium-android-content-only-browser.patch");
 
+/// The patch that takes the two places where the content layer reaches for
+/// the user interface of the desktop out of the build of the content alone.
+///
+/// The modal of the extensions and the widget of the browser of WebRTC are
+/// both the window of the desktop, and both live in a file that asserts
+/// that it is not built for Android.
+pub const CHROMIUM_CONTENT_ONLY_DESKTOP_PATCH: &str =
+    include_str!("../patches/chromium-android-content-only-desktop.patch");
+
 /// Apply a patch to a tree of sources.
 ///
 /// The step is idempotent: a tree that already carries the patch is left
@@ -627,6 +636,10 @@ mod tests {
             (
                 "the content alone, the browser",
                 CHROMIUM_CONTENT_ONLY_BROWSER_PATCH,
+            ),
+            (
+                "the content alone, the desktop",
+                CHROMIUM_CONTENT_ONLY_DESKTOP_PATCH,
             ),
         ] {
             let hunks = hunk_lengths(patch);
