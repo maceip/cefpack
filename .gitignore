@@ -15,3 +15,6 @@
 # The editors
 .DS_Store
 *.swp
+
+# The patches that the scripts of the repository write when they are run.
+/scripts/content-only-*.patch

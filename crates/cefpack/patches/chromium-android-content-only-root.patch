@@ -1,0 +1,28 @@
+diff --git a/BUILD.gn b/BUILD.gn
+--- a/BUILD.gn
++++ b/BUILD.gn
+@@ -2,6 +2,19 @@
+ # Use of this source code is governed by a BSD-style license that can be
+ # found in the LICENSE file.
+ 
++# The root of the tree of Chromium is a group that reaches every target of
++# the tree, and GN resolves the dependencies of every target that it
++# loads.  A build of the content alone therefore loads the whole tree:
++# the browser of the desktop, the tests, the packages of Android, and
++# with them every assertion that says that the desktop is not built for
++# Android.  The build stops there, long before the compiler runs.
++#
++# For the build of the content alone the root of the tree is a group
++# with nothing in it: the build that asks for it names its own target.
++if (cef_content_only) {
++  group("cef_content_only") {
++  }
++} else {
+ # This is the root build file for GN. GN will start processing by loading this
+ # file, and recursively load all dependencies until all dependencies are either
+ # resolved or known not to exist (which will cause the build to fail). So if
+@@ -1670,3 +1683,4 @@
+          ] + build_gn_logs
+ 
+ write_file("$root_build_dir/gn_logs.txt", _lines)
++}

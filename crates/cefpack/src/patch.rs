@@ -220,6 +220,18 @@ pub const CHROMIUM_CONTENT_ONLY_BROWSER_PATCH: &str =
 pub const CHROMIUM_CONTENT_ONLY_DESKTOP_PATCH: &str =
     include_str!("../patches/chromium-android-content-only-desktop.patch");
 
+/// The patch that makes the root of the tree small for a build of the
+/// content alone.
+///
+/// The root `BUILD.gn` of Chromium is a group that reaches every target of
+/// the tree, and GN resolves the dependencies of every target that it
+/// loads — so a build that configures the content alone loads the whole
+/// tree with it: the browser of the desktop, the tests, the packages of
+/// Android, and with them every assertion that says that the desktop is
+/// not built for Android.
+pub const CHROMIUM_CONTENT_ONLY_ROOT_PATCH: &str =
+    include_str!("../patches/chromium-android-content-only-root.patch");
+
 /// Apply a patch to a tree of sources.
 ///
 /// The step is idempotent: a tree that already carries the patch is left
@@ -380,6 +392,37 @@ mod tests {
     use std::path::PathBuf;
     use std::process::Command;
 
+    /// Every patch of the service must end with a newline.
+    ///
+    /// A patch whose last line has none is corrupt: git refuses it with
+    /// the number of the line and not with the name of the patch, and the
+    /// build of the service fails on a patch that was written by a script
+    /// that forgot one line.
+    #[test]
+    fn the_patches_end_with_a_newline() {
+        let patches = [
+            ("the content alone", CHROMIUM_CONTENT_ONLY_PATCH),
+            (
+                "the content alone, the browser",
+                CHROMIUM_CONTENT_ONLY_BROWSER_PATCH,
+            ),
+            (
+                "the content alone, the desktop",
+                CHROMIUM_CONTENT_ONLY_DESKTOP_PATCH,
+            ),
+            (
+                "the content alone, the root",
+                CHROMIUM_CONTENT_ONLY_ROOT_PATCH,
+            ),
+        ];
+        for (name, patch) in patches {
+            assert!(
+                patch.ends_with('\n'),
+                "the patch of {name} does not end with a newline"
+            );
+        }
+    }
+
     /// Every patch of the service must be written in the language of the
     /// build: a comment of GN begins with a `#` and not with a `//`.
     ///
@@ -398,6 +441,10 @@ mod tests {
             (
                 "the content alone, the desktop",
                 CHROMIUM_CONTENT_ONLY_DESKTOP_PATCH,
+            ),
+            (
+                "the content alone, the root",
+                CHROMIUM_CONTENT_ONLY_ROOT_PATCH,
             ),
         ];
         for (name, patch) in patches {
@@ -656,6 +703,10 @@ mod tests {
     fn the_hunks_of_the_patches_say_how_long_they_are() {
         for (name, patch) in [
             ("CEF", CEF_ANDROID_PATCH),
+            // The root of the tree is patched first: the patch that makes
+            // the root small only adds a wrapper around the file, so every
+            // patch that comes after it still finds its place in it.
+            ("the root of the tree", CHROMIUM_CONTENT_ONLY_ROOT_PATCH),
             ("Chromium", CHROMIUM_ANDROID_PATCH),
             ("the views", CHROMIUM_TOOLKIT_VIEWS_PATCH),
             ("the workers of the linker", CHROMIUM_LLD_WORKERS_PATCH),
@@ -670,6 +721,10 @@ mod tests {
             (
                 "the content alone, the desktop",
                 CHROMIUM_CONTENT_ONLY_DESKTOP_PATCH,
+            ),
+            (
+                "the content alone, the root",
+                CHROMIUM_CONTENT_ONLY_ROOT_PATCH,
             ),
         ] {
             let hunks = hunk_lengths(patch);

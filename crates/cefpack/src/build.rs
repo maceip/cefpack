@@ -476,6 +476,16 @@ pub fn apply_chromium_patch(plan: &Plan) -> Result<()> {
         "chrome/browser/media/webrtc/BUILD.gn",
         &["if (!cef_content_only) {", "browser_widget"],
     )?;
+
+    // The root of the tree is patched first, with the other patches of the
+    // service: it is the patch that makes the rest of them matter — without
+    // it, GN loads the whole tree and every assertion of the desktop is
+    // read.
+    patch::verify(
+        &chromium_dir,
+        "BUILD.gn",
+        &["if (cef_content_only) {", "group(\"cef_content_only\")"],
+    )?;
     Ok(())
 }
 
