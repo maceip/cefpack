@@ -1,0 +1,18 @@
+diff --git a/chrome/BUILD.gn b/chrome/BUILD.gn
+--- a/chrome/BUILD.gn
++++ b/chrome/BUILD.gn
+@@ -1664,6 +1664,14 @@
+     "//v8:v8_headers",
+   ]
+ 
++  # The dependencies of the browser are the dependencies of a build that
++  # has a browser.  A build of the content alone has none — and the file
++  # that holds the browser brings the user interface of the desktop with
++  # it, and Chromium has never built that for Android.
++  if (cef_content_only) {
++    public_deps = []
++  }
++
+   if (enable_printing) {
+     public_deps += [ "//printing" ]
+   }

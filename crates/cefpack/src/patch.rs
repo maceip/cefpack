@@ -201,6 +201,16 @@ pub const CHROMIUM_DESKTOP_BROWSER_PATCH: &str =
 pub const CHROMIUM_CONTENT_ONLY_PATCH: &str =
     include_str!("../patches/chromium-android-content-only.patch");
 
+/// The patch that empties the dependencies of the browser for a build of
+/// the content alone.
+///
+/// The group `//chrome:dependencies` is the list of what the browser is
+/// made of, and Chromium reads every target of the file that holds it —
+/// so the group brings the whole browser with it, and the browser brings
+/// the user interface of the desktop, which cannot be read for Android.
+pub const CHROMIUM_CONTENT_ONLY_BROWSER_PATCH: &str =
+    include_str!("../patches/chromium-android-content-only-browser.patch");
+
 /// Apply a patch to a tree of sources.
 ///
 /// The step is idempotent: a tree that already carries the patch is left
@@ -614,6 +624,10 @@ mod tests {
             ("the desktop browser", CHROMIUM_DESKTOP_UI_PATCH),
             ("the desktop browser, again", CHROMIUM_DESKTOP_BROWSER_PATCH),
             ("the content alone", CHROMIUM_CONTENT_ONLY_PATCH),
+            (
+                "the content alone, the browser",
+                CHROMIUM_CONTENT_ONLY_BROWSER_PATCH,
+            ),
         ] {
             let hunks = hunk_lengths(patch);
             assert!(!hunks.is_empty(), "the patch of {name} has hunks");

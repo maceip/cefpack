@@ -445,6 +445,19 @@ pub fn apply_chromium_patch(plan: &Plan) -> Result<()> {
         "ui/base/BUILD.gn",
         &["if (!cef_content_only) {", "\"//chrome:resources\""],
     )?;
+
+    // The eighth patch of the service: the group that says what the
+    // browser is made of, which is empty for a build of the content alone.
+    patch::apply_patch(
+        &chromium_dir,
+        patch::CHROMIUM_CONTENT_ONLY_BROWSER_PATCH,
+        "content-only-browser",
+    )?;
+    patch::verify(
+        &chromium_dir,
+        "chrome/BUILD.gn",
+        &["if (cef_content_only) {", "public_deps = []"],
+    )?;
     Ok(())
 }
 
