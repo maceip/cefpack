@@ -178,25 +178,32 @@ fn gn_gen_arguments(out: &Path, root_target: &str, args: &str) -> Vec<String> {
 /// [Errno 2] No such file or directory: '.../cef/cef_paths.gypi'
 /// ```
 ///
-/// The command is the one that the hook of CEF runs when it checks the
-/// tree out, so the tree that this service configures is the tree that CEF
-/// itself would have built.
+/// The tool that does the translation is the one of the translator of CEF,
+/// `tools/translator.py`.  The other tool of CEF, `tools/version_manager.py`,
+/// does the same translation and **then** computes the hashes of the API of
+/// every version of CEF, and for that it runs the compiler of Chromium over
+/// every header of the API, once per version.  That is a great deal of
+/// memory and time for something the build does not need: the hashes of a
+/// pinned release are already in the tree, and the service reads them in its
+/// own `headers` step, where the verdict is the C API and not the exit code
+/// of a tool.
 ///
-/// The exit code of the tool is not the verdict: the tool ends with a check
-/// of the API hashes, and the verdict of this function is the file that the
-/// build needs.
+/// The exit code of the translator is not the verdict either: it ends with
+/// the formatting of the files that CEF maintains by hand, and that pass
+/// needs the clang-format of the checkout of Chromium.  The verdict of this
+/// function is the file that the build needs, and it is read back.
 fn generate_translated_files(plan: &Plan, cef_dir: &Path) -> Result<()> {
-    let tool = cef_dir.join("tools/version_manager.py");
+    let tool = cef_dir.join("tools/translator.py");
     if !tool.is_file() {
         bail!(
-            "{} has no version manager; the checkout is not a CEF checkout",
+            "{} has no translator; the checkout is not a CEF checkout",
             cef_dir.display()
         );
     }
     let output = Command::new("python3")
         .current_dir(cef_dir)
         .arg(&tool)
-        .args(["-u", "--fast-check"])
+        .args(["--root-dir", &cef_dir.display().to_string()])
         // The translator formats the files that CEF maintains by hand, and
         // it needs the clang-format of the checkout of Chromium for that.
         .env("PATH", path_with_depot_tools(plan))

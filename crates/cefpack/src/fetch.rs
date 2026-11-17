@@ -70,11 +70,80 @@ pub fn fetch(plan: &Plan) -> Result<SourceTree> {
 
     apply_android_patch(&cef_dir)?;
 
+    // The checkout of the sources fills the page cache of the machine with
+    // the forty gigabytes of the pack of Chromium, and the machine of the
+    // build has a ceiling of sixteen.  The pages are not needed again —
+    // the tree is on the disk, and the kernel reads it back when it has to
+    // — so they are given back.  The ceiling is what killed the checkout
+    // of an earlier run: the process that was killed was not the one that
+    // used the memory, but the one that happened to be the largest when
+    // the ceiling was reached.
+    release_page_cache(&plan.source_root);
+
     Ok(SourceTree {
         root: plan.source_root.clone(),
         cef_dir,
         commit: commit.clone(),
     })
+}
+
+/// Give the page cache of the machine back the pages of the tree.
+///
+/// The kernel has no way of doing that for a whole tree, and the service
+/// has no right to write to `/proc/sys/vm/drop_caches`, which needs the
+/// privilege of the superuser.  The file-by-file way is `posix_fadvise`
+/// with `POSIX_FADV_DONTNEED`, and it needs no privilege at all.
+fn release_page_cache(root: &Path) {
+    use std::os::unix::io::AsRawFd;
+
+    let mut files = 0u64;
+    let mut bytes = 0u64;
+
+    for entry in walkdir::WalkDir::new(root).follow_links(false) {
+        let entry = match entry {
+            Ok(entry) => entry,
+            Err(_) => continue,
+        };
+        if !entry.file_type().is_file() {
+            continue;
+        }
+        let metadata = match entry.metadata() {
+            Ok(metadata) => metadata,
+            Err(_) => continue,
+        };
+        if let Ok(file) = std::fs::File::open(entry.path()) {
+            // The advice is a hint: a file that is open, or that the
+            // kernel wants to keep, is not evicted.  That is fine, the
+            // point is to give back what can be given back.
+            unsafe {
+                posix_fadvise(
+                    file.as_raw_fd(),
+                    0,
+                    metadata.len() as i64,
+                    POSIX_FADV_DONTNEED,
+                );
+            }
+            files += 1;
+            bytes += metadata.len();
+        }
+    }
+    if files > 0 {
+        log::info!(
+            "the page cache of the tree was released: {files} files, {} MiB",
+            bytes / (1024 * 1024)
+        );
+    }
+}
+
+/// The advice of `posix_fadvise` that gives the pages of a file back.
+const POSIX_FADV_DONTNEED: i32 = 4;
+
+extern "C" {
+    /// Give the pages of a file back to the kernel.
+    ///
+    /// POSIX, and the only piece of the platform that this service needs
+    /// and that the standard library does not have.
+    fn posix_fadvise(fd: i32, offset: i64, len: i64, advice: i32) -> i32;
 }
 
 /// The patch that makes the tree of CEF accept the target of Android.
@@ -367,6 +436,25 @@ mod tests {
     use super::*;
     use crate::manifest::Manifest;
     use crate::plan::Tool;
+
+    #[test]
+    fn the_page_cache_of_the_tree_is_released() {
+        // The release of the page cache is what keeps the checkout of the
+        // sources from filling the memory of the machine: the pack of
+        // Chromium is forty gigabytes and the ceiling of the machine is
+        // sixteen.
+        let dir = tempfile::tempdir().expect("a temporary directory");
+        let file = dir.path().join("a-file");
+        std::fs::write(&file, vec![0u8; 4096]).expect("the file is written");
+        let sub = dir.path().join("a-directory");
+        std::fs::create_dir_all(&sub).expect("the directory is created");
+        std::fs::write(sub.join("another-file"), vec![0u8; 4096]).expect("the file is written");
+
+        // The function has no answer to give: it is a hint to the kernel,
+        // and the kernel may keep what it wants.  What it must do is walk
+        // the tree without failing on it.
+        release_page_cache(dir.path());
+    }
 
     #[test]
     fn the_head_commit_of_a_repository_is_read() {

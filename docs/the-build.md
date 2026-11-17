@@ -134,6 +134,18 @@ the measured peak was 15.9 GB against a limit of 16 GB, with the processes
 themselves at 69 MB each.  The toolchain comes third, because the NDK and
 the SDK are three gigabytes of files that the checkout does not need.
 
+The page cache of the tree is **given back** at the end of the checkout, file
+by file, with `posix_fadvise(POSIX_FADV_DONTNEED)`.  The pages are not needed
+again — the tree is on the disk, and the kernel reads it back when it has to —
+and the kernel has no way of doing it for a whole tree: `/proc/sys/vm/drop_caches`
+needs the privilege of the superuser, and the service has no right to it.
+
+An earlier run died in the step that follows the checkout, with the agent of
+the sandbox unreachable: the ceiling of the container had been reached by the
+page cache of the tree, and the process that was killed was not the one that
+used the memory, but the largest one at that moment — the agent of the
+sandbox, which is what the service talks to.
+
 
 ## 3. `headers` — the C API
 
@@ -153,6 +165,21 @@ python3 tools/make_api_versions_header.py <out.h> <out.inc> cef_api_versions.jso
 `version_manager.py` needs `<chromium>/chrome/VERSION` to know the version
 of Chromium that the headers describe.  For the pinned commit it is
 `MAJOR=156 / MINOR=0 / BUILD=8078 / PATCH=96`.
+
+The translation itself happens **before** the build, because the build reads
+`cef_paths.gypi` — the file that says which files belong to the engine — and
+that file is generated, not checked in:
+
+```bash
+python3 tools/translator.py --root-dir <cef>             # the translated files
+```
+
+The tool of the hashes (`version_manager.py`) does the same translation and
+then computes the hashes of the API of every version of CEF, and for that it
+runs the compiler of Chromium over every header of the API, once per version.
+The build does not need that: the hashes of a pinned release are already in
+the tree, and the service reads them in this step, where the verdict is the
+C API and not the exit code of a tool.
 
 Two more headers are derived from the headers of Chromium:
 `cef_color_ids.h` and `cef_command_ids.h`.  The service fetches the headers
