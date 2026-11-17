@@ -41,3 +41,25 @@ diff --git a/ui/views/controls/webview/BUILD.gn b/ui/views/controls/webview/BUIL
  
    public_deps = [
      "//base",
+diff --git a/ui/events/ozone/evdev/BUILD.gn b/ui/events/ozone/evdev/BUILD.gn
+--- a/ui/events/ozone/evdev/BUILD.gn
++++ b/ui/events/ozone/evdev/BUILD.gn
+@@ -160,10 +160,17 @@
+       "//chromeos/ash/components/feature_usage",
+     ]
+     visibility += [
+-      "//chrome/browser/ui",
+       "//chrome/browser/ui/ash/main_extra_parts",
+       "//chromeos/ash/components/heatmap/*",
+     ]
++
++      # The input of the desktop is the input of the browser of the
++      # desktop.  A build of the content alone has no browser, and the
++      # name of the browser is not in the list of the names that may
++      # depend on it.
++      if (!cef_content_only) {
++        visibility + += [ "//chrome/browser/ui" ]
++      }
+   }
+ 
+   public_configs = [ ":evdev_config" ]

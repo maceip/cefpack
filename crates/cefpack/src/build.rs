@@ -433,6 +433,11 @@ pub fn apply_chromium_patch(plan: &Plan) -> Result<()> {
         "ui/views/controls/webview/BUILD.gn",
         &["if (!cef_content_only) {", "\"//ui/web_dialogs\""],
     )?;
+    patch::verify(
+        &chromium_dir,
+        "ui/events/ozone/evdev/BUILD.gn",
+        &["if (!cef_content_only) {", "\"//chrome/browser/ui\""],
+    )?;
 
     // The seventh patch of the service: the user interface of the desktop
     // browser, which the build of the content *reads* — through the

@@ -50,6 +50,16 @@ IN_LISTS = [
             "# that shows it brings the user interface of the desktop with it.",
         ],
     ),
+    (
+        "ui/events/ozone/evdev/BUILD.gn",
+        '"//chrome/browser/ui",',
+        [
+            "# The input of the desktop is the input of the browser of the",
+            "# desktop.  A build of the content alone has no browser, and the",
+            "# name of the browser is not in the list of the names that may",
+            "# depend on it.",
+        ],
+    ),
 ]
 
 
