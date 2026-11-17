@@ -86,6 +86,12 @@ args = [
   "target_os=\"android\"",
   "target_cpu=\"arm64\"",
   "is_android=true",
+  # The tests of the tree are not built.  Every test of Chromium pulls the
+  # browser with it — the test of the message box of the browser is in
+  # `//apps`, and the test of the browser is in `//chrome/test` — and the
+  # browser brings the user interface of the desktop with it, which
+  # Chromium has never built for Android.
+  "include_tests=false",
   # Chromium builds the desktop browser for Android in its own configuration,
   # and CEF **is** the desktop browser: the engine of CEF is the browser of
   # Chromium without the shell around it.  The configuration is what turns
