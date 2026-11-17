@@ -116,7 +116,10 @@ fi
 # bootstrap; without it they refuse to run.
 if [ ! -f "${DEPOT}/python3_bin_reldir.txt" ]; then
   echo "the bootstrap of depot_tools"
-  DEPOT_TOOLS_UPDATE=0 "${DEPOT}/update_depot_tools" --no-check
+  # The bootstrap is its own tool: `update_depot_tools` skips it when
+  # `DEPOT_TOOLS_UPDATE` is set, and the wrapper of `gn` and of `ninja`
+  # refuses to run without the python that the bootstrap builds.
+  ( unset DEPOT_TOOLS_UPDATE; "${DEPOT}/ensure_bootstrap" )
 fi
 
 # --- Rust ------------------------------------------------------------------
