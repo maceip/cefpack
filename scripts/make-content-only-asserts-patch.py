@@ -49,7 +49,11 @@ import sys
 # words: `assert(!is_android && !is_ios)` says the same thing as
 # `assert(!is_android)`, and the build of the content alone has to be
 # able to read the file as well.
-THE_DESKTOP = "is_win || is_mac || is_linux || is_chromeos"
+# The names of the platforms of the desktop.  An assertion that names one
+# of them says that the file is a file of the desktop — and the assertion
+# says it in many ways: with the four of them, with three of them, with
+# one of them.
+THE_DESKTOP = ("is_win", "is_mac", "is_linux", "is_chromeos")
 
 # The files that the other patches of the service touch.  Two patches
 # that touch one file cannot both be applied: when a patch does not fit,
@@ -133,7 +137,7 @@ def relaxed(line: str) -> str:
             + ")"
             + line[end:]
         )
-    if THE_DESKTOP in condition:
+    if any(name in condition for name in THE_DESKTOP):
         return (
             line[:start]
             + "assert("
