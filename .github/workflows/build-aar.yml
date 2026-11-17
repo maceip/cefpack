@@ -1,0 +1,91 @@
+name: Build Cefpack Android AAR
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish cefpack-android.aar and cef-bundle.tar.gz to GitHub Releases
+        type: boolean
+        default: true
+      release_tag:
+        description: GitHub Release tag to create or update
+        type: string
+        default: v0.2.0
+      sandbox_key:
+        description: Limrun sandbox reuse key
+        type: string
+        default: v020
+
+permissions:
+  contents: write
+
+concurrency:
+  group: cefpack-aar-${{ inputs.sandbox_key || 'v020' }}
+  cancel-in-progress: false
+
+jobs:
+  build-aar:
+    name: Build multi-ABI cefpack-android.aar on Limrun
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    env:
+      LIM_API_KEY: ${{ secrets.LIMRUN_API_KEY }}
+      LIMRUN_TOOLS_DIR: ${{ github.workspace }}/tools
+      CEF_MIN_CREDIT: "0"
+      CEF_SANDBOX_KEY: ${{ inputs.sandbox_key || 'v020' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Run assemble_aar.py self-test before provisioning sandbox
+        run: python3 ./embedder/assemble_aar.py --self-test
+
+      - name: Build cefpack-android.aar on Limrun
+        run: ./scripts/limrun-aar-build.sh
+
+      - name: Print artifact digests
+        run: |
+          ls -lh cefpack-android.aar cef-bundle.tar.gz
+          cat cefpack-android.aar.sha256
+          cat cef-bundle.tar.gz.sha256
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cefpack-android-aar
+          path: |
+            cefpack-android.aar
+            cefpack-android.aar.sha256
+            cef-bundle.tar.gz
+            cef-bundle.tar.gz.sha256
+          retention-days: 30
+
+      - name: Publish GitHub Release
+        if: inputs.publish
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ inputs.release_tag || 'v0.2.0' }}
+        run: |
+          AAR_SHA="$(cut -d' ' -f1 cefpack-android.aar.sha256)"
+          BUNDLE_SHA="$(cut -d' ' -f1 cef-bundle.tar.gz.sha256)"
+          NOTES="$(printf 'Source-built multi-ABI (`arm64-v8a` + `x86_64`) Android Chromium content engine (`156.0.8078.96`, commit `2ad9b7f5a86846e0b264090723a6a78964bb84c4`).\n\n- Zero Cefrium, zero Google Play Services / Firebase / MLKit, zero desktop Chrome UI\n- 16 KB ELF64 `PT_LOAD` aligned `libcefpack_content.so` (`arm64-v8a` + `x86_64`)\n- `cefpack-android.aar` SHA-256: `%s`\n- `cef-bundle.tar.gz` SHA-256: `%s`\n' "${AAR_SHA}" "${BUNDLE_SHA}")"
+          if gh release view "${TAG}" >/dev/null 2>&1; then
+            gh release upload "${TAG}" \
+              cefpack-android.aar \
+              cefpack-android.aar.sha256 \
+              cef-bundle.tar.gz \
+              cef-bundle.tar.gz.sha256 \
+              --clobber
+            gh release edit "${TAG}" --notes "${NOTES}"
+          else
+            gh release create "${TAG}" \
+              cefpack-android.aar \
+              cefpack-android.aar.sha256 \
+              cef-bundle.tar.gz \
+              cef-bundle.tar.gz.sha256 \
+              --target "${GITHUB_SHA}" \
+              --title "Cefpack Android ${TAG} (Chromium 156.0.8078.96)" \
+              --notes "${NOTES}"
+          fi
