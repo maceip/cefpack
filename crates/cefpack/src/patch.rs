@@ -171,6 +171,21 @@ pub const CHROMIUM_TARGET_OS_PATCH: &str =
 pub const CHROMIUM_DESKTOP_UI_PATCH: &str =
     include_str!("../patches/chromium-android-desktop-ui.patch");
 
+/// The patch that keeps the user interface of the desktop browser out of
+/// the browser of Android.
+///
+/// The browser of Android depends on the user interface of the desktop
+/// browser, and Chromium reads every target of the file that holds it —
+/// and the file cannot be read for Android, because the library of the
+/// user interface of the desktop adds its sources under the flag of the
+/// views, and the flag is on for Android.
+///
+/// The user interface of the desktop is not part of the browser of
+/// Android: the browser of Android is the browser of the mobile, and its
+/// user interface is in `//chrome/browser/ui/android`.
+pub const CHROMIUM_DESKTOP_BROWSER_PATCH: &str =
+    include_str!("../patches/chromium-android-desktop-browser.patch");
+
 /// Apply a patch to a tree of sources.
 ///
 /// The step is idempotent: a tree that already carries the patch is left
@@ -582,6 +597,7 @@ mod tests {
             ("the workers of the linker", CHROMIUM_LLD_WORKERS_PATCH),
             ("the target of the build", CHROMIUM_TARGET_OS_PATCH),
             ("the desktop browser", CHROMIUM_DESKTOP_UI_PATCH),
+            ("the desktop browser, again", CHROMIUM_DESKTOP_BROWSER_PATCH),
         ] {
             let hunks = hunk_lengths(patch);
             assert!(!hunks.is_empty(), "the patch of {name} has hunks");

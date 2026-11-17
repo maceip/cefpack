@@ -413,6 +413,20 @@ pub fn apply_chromium_patch(plan: &Plan) -> Result<()> {
         "chrome/browser/ui/BUILD.gn",
         &["if (toolkit_views && target_os != \"android\") {"],
     )?;
+
+    // The sixth patch of the service: the browser of Android does not have
+    // the user interface of the desktop browser, and the file that holds
+    // it cannot be read for Android.
+    patch::apply_patch(
+        &chromium_dir,
+        patch::CHROMIUM_DESKTOP_BROWSER_PATCH,
+        "desktop-browser",
+    )?;
+    patch::verify(
+        &chromium_dir,
+        "chrome/BUILD.gn",
+        &["if (target_os != \"android\") {", "//chrome/browser/ui"],
+    )?;
     Ok(())
 }
 

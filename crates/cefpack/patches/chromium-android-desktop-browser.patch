@@ -1,0 +1,25 @@
+diff --git a/chrome/BUILD.gn b/chrome/BUILD.gn
+--- a/chrome/BUILD.gn
++++ b/chrome/BUILD.gn
+@@ -1820,7 +1820,6 @@
+       "//chrome/browser/flags:flags_android",
+       "//chrome/browser/lifetime",
+       "//chrome/browser/payments:impl",
+-      "//chrome/browser/ui",
+       "//chrome/child",
+       "//chrome/common",
+       "//chrome/common:version_header",
+@@ -1836,6 +1835,13 @@
+       "//content/public/app",
+     ]
+ 
++    if (target_os != "android") {
++      # The user interface of the desktop browser is not part of the
++      # browser of Android: the browser of Android is the browser of the
++      # mobile, and its user interface is in //chrome/browser/ui/android.
++      deps += [ "//chrome/browser/ui" ]
++    }
++
+     # Explicit dependency required for JNI registration to be able to
+     # find the native side functions.
+     if (is_component_build) {
