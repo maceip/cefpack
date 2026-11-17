@@ -169,6 +169,14 @@ pub fn sync(plan: &Plan, tree: &SourceTree) -> Result<()> {
     //
     //   * `--shallow` and `--no-history`: the history of a tree that is
     //     pinned by a commit is not needed for anything.
+    //
+    //   * `--nohooks`: the hook of CEF configures and builds the *host*
+    //     tree of Chromium, with the system libraries of a desktop Linux
+    //     — cups among them.  The build of an engine for Android needs
+    //     none of that, and the hook fails on a machine that does not
+    //     carry the packages of a desktop.  The work of the hook — the
+    //     patches and the headers of the C API — is done by this service,
+    //     with the tools that CEF ships.
     let status = Command::new(&gclient)
         .current_dir(&tree.root)
         .args([
@@ -176,6 +184,7 @@ pub fn sync(plan: &Plan, tree: &SourceTree) -> Result<()> {
             "--no-history",
             "--shallow",
             "--force",
+            "--nohooks",
         ])
         .env("DEPOT_TOOLS_UPDATE", "0")
         .env("PATH", path_with_depot_tools(plan))
