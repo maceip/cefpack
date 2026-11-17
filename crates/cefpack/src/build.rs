@@ -437,8 +437,13 @@ pub fn apply_chromium_patch(plan: &Plan) -> Result<()> {
     )?;
     patch::verify(
         &chromium_dir,
+        "build/config/BUILDCONFIG.gn",
+        &["cef_content_only = false"],
+    )?;
+    patch::verify(
+        &chromium_dir,
         "ui/base/BUILD.gn",
-        &["if (root != \"//\") {", "\"//chrome:resources\""],
+        &["if (!cef_content_only) {", "\"//chrome:resources\""],
     )?;
     Ok(())
 }

@@ -1,3 +1,25 @@
+diff --git a/build/config/BUILDCONFIG.gn b/build/config/BUILDCONFIG.gn
+--- a/build/config/BUILDCONFIG.gn
++++ b/build/config/BUILDCONFIG.gn
+@@ -121,6 +121,18 @@
+ #
+ # - Don't call exec_script inside declare_args. This will execute the script
+ #   even if the value is overridden, which is wasteful. See first bullet.
++
++declare_args() {
++  # The build of the content of Chromium alone: the engine of CEF is not
++  # built, and the browser of Chromium with it.
++  #
++  # The resources of the browser are the resources of the *browser*, and
++  # the file that holds them is the file of the browser — and Chromium
++  # reads every target of a file that it reads.  A build of the content
++  # alone has no browser, and the resources of the browser are not asked
++  # for.
++  cef_content_only = false
++}
+ 
+ declare_args() {
+   # Set to enable the official build level of optimization. This has nothing
 diff --git a/ui/base/BUILD.gn b/ui/base/BUILD.gn
 --- a/ui/base/BUILD.gn
 +++ b/ui/base/BUILD.gn
@@ -11,10 +33,10 @@ diff --git a/ui/base/BUILD.gn b/ui/base/BUILD.gn
 -    ]
 +    deps += [ "//ui/android:ui_java" ]
 +    # The resources of the browser are the resources of the *browser*.  A
-+    # build that is rooted in the tree of Chromium has no browser, and the
-+    # file that holds the resources is the file of the browser — and
-+    # Chromium reads every target of a file that it reads.
-+    if (root != "//") {
++    # build of the content alone has no browser, and the file that holds
++    # the resources is the file of the browser — and Chromium reads every
++    # target of a file that it reads.
++    if (!cef_content_only) {
 +      deps += [ "//chrome:resources" ]
 +    }
    }
@@ -31,18 +53,18 @@ diff --git a/extensions/renderer/BUILD.gn b/extensions/renderer/BUILD.gn
      "//components/crx_file",
      "//components/guest_view/buildflags",
      "//components/url_formatter",
-@@ -281,6 +280,14 @@
+@@ -280,6 +279,14 @@
+     "//third_party/zlib/google:compression_utils",
      "//ui/strings:auto_image_annotation_strings_grit",
    ]
- 
++
 +  # The resources of the browser are the resources of the *browser*.  A
-+  # build that is rooted in the tree of Chromium has no browser, and the
-+  # file that holds the resources is the file of the browser — and
-+  # Chromium reads every target of a file that it reads.
-+  if (root != "//") {
++  # build of the content alone has no browser, and the file that holds
++  # the resources is the file of the browser — and Chromium reads every
++  # target of a file that it reads.
++  if (!cef_content_only) {
 +    deps += [ "//chrome:resources" ]
 +  }
-+
+ 
    # TODO(https://crbug.com/356905053): The following files don't compile
    # cleanly with the experimental desktop-android build. Either make them
-   # compile, or determine they should not be included and place them under a

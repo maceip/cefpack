@@ -346,6 +346,10 @@ impl Manifest {
             "use_cef",
         ];
         let mut args: Vec<String> = Vec::new();
+        // The build of the content alone: no browser, and with it no
+        // resources of the browser.  The argument is declared by the patch
+        // of the service.
+        args.push("cef_content_only=true".to_string());
         for argument in self.gn_args(debug) {
             let key = argument.split_once('=').map(|(k, _)| k).unwrap_or("");
             if desktop.contains(&key) {
