@@ -48,7 +48,7 @@ work together:
 | the resource loading | the pak files and the locales, read out of the package of the application rather than out of a directory next to the binary |
 | the process start-up | the order in which the library is loaded, the command line is parsed and the message loop is entered — the order is not free, and getting it wrong aborts the process |
 
-The third-party port that this project used before (Cefrium) is exactly this
+The third-party port that this project used before is exactly this
 embedding, and it is roughly ten thousand lines of it.
 
 ## The failure this caused, and the rule that came out of it
@@ -59,8 +59,7 @@ guessed at:
 
 - `libcef.so` alone references **475** distinct `org/chromium/...` classes
   and exports **3 554** `Java_*` symbols;
-- the dex files of that APK contained **zero** classes of `org/chromium/` or
-  `com/cefrium/`;
+- the dex files of that APK contained **zero** classes of `org/chromium/`;
 - and `System.loadLibrary` appeared **nowhere** in the history of the
   repository, so the native library was never in the process at all.
 

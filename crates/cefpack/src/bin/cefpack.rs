@@ -18,7 +18,7 @@
 use std::{path::PathBuf, process::ExitCode};
 
 use anyhow::{bail, Context, Result};
-use cefpack::{apk, audit, bindgen, build, fetch, manifest::Manifest, plan::Plan};
+use cefpack::{abi, apk, audit, bindgen, build, fetch, manifest::Manifest, plan::Plan};
 
 fn main() -> ExitCode {
     let arguments: Vec<String> = std::env::args().skip(1).collect();
@@ -60,6 +60,13 @@ fn run(arguments: &[String]) -> Result<()> {
                 .map(PathBuf::from)
                 .unwrap_or_else(default_bundle);
             command_audit(&bundle)
+        }
+        "abi" => {
+            let cef_dir = rest
+                .positional(0)
+                .map(PathBuf::from)
+                .unwrap_or_else(default_source_dir);
+            command_abi(&cef_dir)
         }
         "bindgen" => {
             let bundle = rest
@@ -255,6 +262,69 @@ fn command_build() -> Result<()> {
     let plan = Plan::resolve(manifest()?)?;
     let output = build::build(&plan, debug)?;
     println!("the bundle is in {}", output.bundle.display());
+    Ok(())
+}
+
+/// Audit the C ABI of a checkout against the symbols a consumer links against.
+fn command_abi(cef_dir: &std::path::Path) -> Result<()> {
+    let abi = abi::Abi::read(cef_dir)?;
+    let required = abi::required_symbols();
+    let audit = abi.audit(&required);
+
+    println!("the C API of {}", cef_dir.display());
+    for tier in abi::Tier::all() {
+        let declared = audit.by_tier.get(&tier).copied().unwrap_or(0);
+        let needed = audit.required_by_tier.get(&tier).copied().unwrap_or(0);
+        println!(
+            "  {:9} {declared:4} declared, {needed:4} of them needed by the consumer",
+            tier.name()
+        );
+    }
+    println!();
+    println!(
+        "the consumer needs {} symbols; the engine declares {}",
+        audit.required, audit.exported
+    );
+
+    if audit.missing.is_empty() {
+        println!("every symbol of the consumer is declared by the engine");
+    } else {
+        println!(
+            "{} symbols of the consumer are declared nowhere in the headers:",
+            audit.missing.len()
+        );
+        for name in &audit.missing {
+            println!("  {name}");
+        }
+    }
+    println!();
+    println!(
+        "{} symbols are declared by the engine and not needed by the consumer;",
+        audit.unused.len()
+    );
+    println!("they are the handlers of the desktop, and the shim stubs them.");
+
+    // The prototypes of the symbols that the consumer needs.  This is the
+    // contract that the shim of the service implements, and it is written
+    // out so that the shim and the consumer cannot drift apart without a
+    // diff that says so.
+    println!();
+    println!("the prototypes of the symbols that the consumer needs");
+    for tier in abi::Tier::all() {
+        let prototypes: Vec<&abi::Prototype> = abi
+            .functions
+            .iter()
+            .filter(|prototype| prototype.tier == tier && required.contains(&prototype.name))
+            .collect();
+        if prototypes.is_empty() {
+            continue;
+        }
+        println!();
+        println!("--- {} ({} symbols) ---", tier.name(), prototypes.len());
+        for prototype in prototypes {
+            println!("{}", prototype.as_c());
+        }
+    }
     Ok(())
 }
 

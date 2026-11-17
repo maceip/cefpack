@@ -133,9 +133,8 @@ a patch of it:
 
 None of this is a matter of a few flags or a few patches.  It is the reason
 that there is no build of CEF for Android in the world, and the reason that
-Cefrium — the project that was removed from the browser — was built the way
-it was: on the Chromium that Google builds for Android, not on the sources
-of CEF.
+the engine that the browser used before it was built the way it was: on the
+Chromium that Google builds for Android, not on the sources of CEF.
 
 ## The three ways forward
 
@@ -144,10 +143,11 @@ of CEF.
    desktop.  Weeks to months, and no guarantee.
 
 2. **Build Chromium's Android browser from the sources, and put the C API of
-   CEF over it.**  The shape that Cefrium had, but with nothing prebuilt:
-   the service builds Chromium for Android — a target that Chromium
-   supports — and the C API of CEF is written over it.  The engine is not
-   the engine of CEF; it is the Chromium of Android with the shape of CEF.
+   CEF over it.**  The shape that the engine of the browser had before it,
+   but with nothing prebuilt: the service builds Chromium for Android — a
+   target that Chromium supports — and the C API of CEF is written over it.
+   The engine is not the engine of CEF; it is the Chromium of Android with
+   the shape of CEF.
 
 3. **Stop at the bundler.**  The service stays what it is: a tool that
    checks out the sources, patches them, configures the build and collects

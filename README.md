@@ -142,6 +142,8 @@ file alone.
 ## Reading further
 
 - [`docs/the-build.md`](docs/the-build.md) — what each step of the build does
+- [`docs/the-port.md`](docs/the-port.md) — **what stands between CEF and Android**, measured on a real build
+- [`docs/the-abi.md`](docs/the-abi.md) — **the C ABI**: the 190 symbols the consumer links against, measured
 - [`docs/the-embedding.md`](docs/the-embedding.md) — **the part that is still missing**: the Android embedding of CEF
 - [`docs/header-recipes.md`](docs/header-recipes.md) — the facts that were expensive to learn
 - [`docs/consume.md`](docs/consume.md) — how an application consumes the bundle

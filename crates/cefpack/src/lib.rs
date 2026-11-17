@@ -38,6 +38,7 @@
 //! the consumers — `cef-rs`' build script, the Gradle packaging, the licence
 //! task — need no special case for Android.
 
+pub mod abi;
 pub mod apk;
 pub mod audit;
 pub mod bindgen;
