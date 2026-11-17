@@ -26,18 +26,18 @@ EDITS = [
         "extensions/browser/BUILD.gn",
         'deps += [ "//components/web_modal" ]',
         [
-            "// The window of the modal is the window of the desktop.  A build",
-            "// of the content alone has no modal to show, and the component",
-            "// that shows it brings the user interface of the desktop with it.",
+            "# The window of the modal is the window of the desktop.  A build",
+            "# of the content alone has no modal to show, and the component",
+            "# that shows it brings the user interface of the desktop with it.",
         ],
     ),
     (
         "chrome/browser/media/webrtc/BUILD.gn",
         'deps += [ "//chrome/browser/ui/views/frame:browser_widget" ]',
         [
-            "// The widget of the browser is the widget of the desktop.  A build",
-            "// of the content alone has no browser widget, and the file that",
-            "// holds it brings the user interface of the desktop with it.",
+            "# The widget of the browser is the widget of the desktop.  A build",
+            "# of the content alone has no browser widget, and the file that",
+            "# holds it brings the user interface of the desktop with it.",
         ],
     ),
 ]

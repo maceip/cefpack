@@ -380,6 +380,36 @@ mod tests {
     use std::path::PathBuf;
     use std::process::Command;
 
+    /// Every patch of the service must be written in the language of the
+    /// build: a comment of GN begins with a `#` and not with a `//`.
+    ///
+    /// The build of the service patches the tree of Chromium and then
+    /// configures the build; a comment that is not a comment of GN stops
+    /// the configuration with a message that names the line and not the
+    /// patch that wrote it.
+    #[test]
+    fn the_patches_are_written_in_the_language_of_the_build() {
+        let patches = [
+            ("the content alone", CHROMIUM_CONTENT_ONLY_PATCH),
+            (
+                "the content alone, the browser",
+                CHROMIUM_CONTENT_ONLY_BROWSER_PATCH,
+            ),
+            (
+                "the content alone, the desktop",
+                CHROMIUM_CONTENT_ONLY_DESKTOP_PATCH,
+            ),
+        ];
+        for (name, patch) in patches {
+            for line in patch.lines() {
+                let added = line.strip_prefix('+').unwrap_or_default().trim_start();
+                if added.starts_with("//") {
+                    panic!("the patch of {name} writes a comment of C++: {line}");
+                }
+            }
+        }
+    }
+
     /// A repository with one file in it.
     fn repository() -> tempfile::TempDir {
         let dir = tempfile::tempdir().expect("a temporary directory");
