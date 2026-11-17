@@ -484,6 +484,18 @@ mod tests {
                 "{assertion} is relaxed for Android"
             );
         }
+        // The patch also carries the root of the build: the engine and the
+        // shim of the C API, and nothing else.
+        assert!(
+            ANDROID_PATCH.contains("+group(\"cef_android\")"),
+            "the patch carries the root of the build"
+        );
+        for target in ["":libcef\"", "":libcef_dll_wrapper\""] {
+            assert!(
+                ANDROID_PATCH.contains(target),
+                "the root of the build carries {target}"
+            );
+        }
     }
 
     #[test]
