@@ -98,7 +98,7 @@ fn run(arguments: &[String]) -> Result<()> {
             // The patches that the service carries for the tree of Chromium.
             // A build that is not the build of the service — the
             // measurement of the link — uses the same tree.
-            let plan = plan()?;
+            let plan = plan_of_the_checkout()?;
             build::apply_chromium_patch(&plan)?;
             println!("the patches of the service are applied");
             Ok(())
@@ -107,7 +107,7 @@ fn run(arguments: &[String]) -> Result<()> {
             // The hook of Chromium that writes the time of the last change.
             // The build is configured while the hooks are skipped, so this
             // is the one hook that is run by hand.
-            let plan = plan()?;
+            let plan = plan_of_the_checkout()?;
             build::write_the_last_change(&plan)?;
             println!(
                 "the last change is in {}",
@@ -248,15 +248,15 @@ fn manifest() -> Result<Manifest> {
 }
 
 /// The plan, resolved from the pinned manifest, with the host checked.
-fn plan() -> Result<Plan> {
-    let plan = Plan::resolve(manifest()?)?;
-    if !plan.problems.is_empty() {
-        bail!(
-            "this machine cannot build the engine:\n  - {}",
-            plan.problems.join("\n  - ")
-        );
-    }
-    Ok(plan)
+/// The plan of the checkout, without the check of the host.
+///
+/// The patches of the service only need the tree of Chromium: the
+/// toolchain is needed to *build*, and a tree that carries the patches is
+/// a tree that is ready to be built.  A command that patches a tree must
+/// therefore work on a machine whose toolchain is not in place yet — the
+/// machine that fetches the sources, for one.
+fn plan_of_the_checkout() -> Result<Plan> {
+    Plan::resolve(manifest()?)
 }
 
 /// Resolve the plan and check the host.
