@@ -209,9 +209,10 @@ install_pkg_config() {
     fi
     dpkg-deb -x "${ARCHIVE}" "${ROOT}" || return 1
   done
-  # `pkgconf` is the program; the name that the build calls is `pkg-config`.
-  ln -sf pkgconf "${ROOT}/bin/pkg-config"
-  [ -x "${ROOT}/bin/pkg-config" ] || return 1
+  # The program is `pkgconf`; the name that the build calls is `pkg-config`.
+  # The archive unpacks into `usr/bin`, and that is where the link goes.
+  ln -sf pkgconf "${ROOT}/usr/bin/pkg-config"
+  [ -x "${ROOT}/usr/bin/pkg-config" ] || return 1
 }
 
 # --- the environment -------------------------------------------------------
@@ -238,11 +239,11 @@ export CEF_DEPOT_TOOLS=${DEPOT}
 export CARGO_HOME=${CARGO_HOME}
 export RUSTUP_HOME=\${RUSTUP_HOME:-${RUSTUP_HOME}}
 export LIBCLANG_PATH=\${LIBCLANG_PATH:-${LIBCLANG_PATH}}
-# The `pkg-config` of the toolchain, and the library it needs.  The build of
+# The pkg-config of the toolchain, and the library it needs.  The build of
 # Chromium looks the packages of the host up with it.
 export CEF_HOST_TOOLS=${TOOLCHAIN}/host-tools
-export LD_LIBRARY_PATH=\${CEF_HOST_TOOLS}/usr/lib/x86_64-linux-gnu:\${LD_LIBRARY_PATH}
-export PATH=\${CARGO_HOME}/bin:\${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin:\${CEF_DEPOT_TOOLS}:\${CEF_HOST_TOOLS}/bin:\${PATH}
+export LD_LIBRARY_PATH=\${CEF_HOST_TOOLS}/usr/lib/x86_64-linux-gnu:\${LD_LIBRARY_PATH:-}
+export PATH=\${CARGO_HOME}/bin:\${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin:\${CEF_DEPOT_TOOLS}:\${CEF_HOST_TOOLS}/usr/bin:\${PATH}
 EOF
 }
 
