@@ -192,13 +192,7 @@ pub fn sync(plan: &Plan, tree: &SourceTree) -> Result<()> {
     //     with the tools that CEF ships.
     let status = Command::new(&gclient)
         .current_dir(&tree.root)
-        .args([
-            "sync",
-            "--no-history",
-            "--shallow",
-            "--force",
-            "--nohooks",
-        ])
+        .args(["sync", "--no-history", "--shallow", "--force", "--nohooks"])
         .env("DEPOT_TOOLS_UPDATE", "0")
         .env("PATH", path_with_depot_tools(plan))
         .status()
