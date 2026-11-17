@@ -461,17 +461,26 @@ mod tests {
             ANDROID_PATCH.starts_with("diff --git"),
             "the patch is a diff"
         );
-        for assertion in [
-            "assert(enable_print_preview)",
-            "assert(enable_widevine)",
-            "assert(toolkit_views)",
+        for (assertion, relaxed) in [
+            (
+                "assert(enable_print_preview)",
+                "assert(enable_print_preview || is_android)",
+            ),
+            (
+                "assert(enable_widevine)",
+                "assert(enable_widevine || is_android)",
+            ),
+            (
+                "assert(toolkit_views)",
+                "assert(toolkit_views || is_android)",
+            ),
         ] {
             assert!(
                 ANDROID_PATCH.contains(&format!("-{assertion}")),
                 "{assertion} is relaxed by the patch"
             );
             assert!(
-                ANDROID_PATCH.contains(&format!("+{assertion} || is_android")),
+                ANDROID_PATCH.contains(&format!("+{relaxed}")),
                 "{assertion} is relaxed for Android"
             );
         }
