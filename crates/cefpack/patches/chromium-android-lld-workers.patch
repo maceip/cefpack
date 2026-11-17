@@ -1,4 +1,6 @@
 diff --git a/build/toolchain/get_lld_read_workers.py b/build/toolchain/get_lld_read_workers.py
+--- a/build/toolchain/get_lld_read_workers.py
++++ b/build/toolchain/get_lld_read_workers.py
 @@ -4,9 +4,31 @@
  # found in the LICENSE file.
  
