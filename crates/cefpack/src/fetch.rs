@@ -14,6 +14,7 @@ use std::{
 
 use anyhow::{bail, Context, Result};
 
+use crate::patch;
 use crate::plan::Plan;
 
 /// The checkout of the CEF sources.
@@ -102,47 +103,26 @@ pub fn fetch(plan: &Plan) -> Result<SourceTree> {
 /// the checkout, and it is a diff against the pinned commit: a CEF that
 /// changes the lines it touches stops the build with a message that says
 /// so, instead of being built with the wrong flags.
-const ANDROID_PATCH: &str = include_str!("../patches/cef-android-gn-asserts.patch");
-
 /// Apply the patch of the service to the tree of CEF.
 ///
 /// The step is idempotent: a tree that already carries the patch is left
 /// alone, so an interrupted build can be resumed.
 fn apply_android_patch(cef_dir: &Path) -> Result<()> {
-    let patch = cef_dir.join(".cefpack-android.patch");
-    std::fs::write(&patch, ANDROID_PATCH)
-        .with_context(|| format!("cannot write {}", patch.display()))?;
+    patch::apply_patch(cef_dir, patch::CEF_ANDROID_PATCH, "CEF")?;
 
-    // `git apply --check` says whether the patch still fits the tree; when
-    // it does not, the tree of CEF is not the one this service knows.
-    let check = Command::new("git")
-        .current_dir(cef_dir)
-        .args(["apply", "--check"])
-        .arg(&patch)
-        .output()
-        .with_context(|| format!("cannot run git in {}", cef_dir.display()))?;
-    if check.status.success() {
-        let status = Command::new("git")
-            .current_dir(cef_dir)
-            .args(["apply"])
-            .arg(&patch)
-            .status()
-            .with_context(|| format!("cannot run git in {}", cef_dir.display()))?;
-        if !status.success() {
-            bail!("the patch of the service does not fit the tree of CEF");
-        }
-        log::info!("the patch of the service is applied to the tree of CEF");
-    } else {
-        let detail = String::from_utf8_lossy(&check.stderr).trim().to_string();
-        // A patch that is already applied is not an error: the checkout is
-        // resumable and the tree keeps what it has.
-        if detail.contains("already exists") || detail.contains("patch does not apply") {
-            log::info!("the tree of CEF already carries the patch of the service");
-        } else {
-            bail!("the patch of the service does not fit the tree of CEF: {detail}");
-        }
-    }
-    let _ = std::fs::remove_file(&patch);
+    // The result is read back, because a patch that git accepted and that
+    // did not change the file is not a patch.
+    patch::verify(
+        cef_dir,
+        "BUILD.gn",
+        &[
+            "assert(enable_print_preview || is_android)",
+            "assert(enable_widevine || is_android)",
+            "assert(toolkit_views || is_android)",
+            "group(\"cef_android\")",
+            "testonly = true",
+        ],
+    )?;
     Ok(())
 }
 
@@ -458,7 +438,7 @@ mod tests {
         // lines it touches must stop the build, and `git apply --check`
         // is what says so.
         assert!(
-            ANDROID_PATCH.starts_with("diff --git"),
+            patch::CEF_ANDROID_PATCH.starts_with("diff --git"),
             "the patch is a diff"
         );
         for (assertion, relaxed) in [
@@ -476,23 +456,23 @@ mod tests {
             ),
         ] {
             assert!(
-                ANDROID_PATCH.contains(&format!("-{assertion}")),
+                patch::CEF_ANDROID_PATCH.contains(&format!("-{assertion}")),
                 "{assertion} is relaxed by the patch"
             );
             assert!(
-                ANDROID_PATCH.contains(&format!("+{relaxed}")),
+                patch::CEF_ANDROID_PATCH.contains(&format!("+{relaxed}")),
                 "{assertion} is relaxed for Android"
             );
         }
         // The patch also carries the root of the build: the engine and the
         // shim of the C API, and nothing else.
         assert!(
-            ANDROID_PATCH.contains("+group(\"cef_android\")"),
+            patch::CEF_ANDROID_PATCH.contains("+group(\"cef_android\")"),
             "the patch carries the root of the build"
         );
         for target in [":libcef\"", ":libcef_dll_wrapper\""] {
             assert!(
-                ANDROID_PATCH.contains(target),
+                patch::CEF_ANDROID_PATCH.contains(target),
                 "the root of the build carries {target}"
             );
         }

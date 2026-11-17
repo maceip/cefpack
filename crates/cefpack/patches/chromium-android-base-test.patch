@@ -1,0 +1,13 @@
+diff --git a/base/test/BUILD.gn b/base/test/BUILD.gn
+index afddfd4a555750837875292fee037329f4b0e585..415419dc7e53996659da9b7ca871aed7b1fdf3ae 100644
+--- a/base/test/BUILD.gn
++++ b/base/test/BUILD.gn
+@@ -741,7 +741,7 @@ target(_target_type, "test_trace_processor") {
+     "//third_party/abseil-cpp:absl",
+     "//third_party/perfetto:libtrace_processor",
+   ]
+-  if (is_android) {
++  if (is_android && _target_type == "shared_library") {
+     configs -= [ "//build/config/android:hide_all_but_jni_onload" ]
+   }
+ 

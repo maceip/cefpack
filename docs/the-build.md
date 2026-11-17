@@ -168,28 +168,37 @@ The result is a bundle that carries 393 headers, of which 161 are the C API.
 The service configures the build with GN and compiles it with Ninja:
 
 ```bash
-gn gen out/Release --root=//cef:cef_android \
+gn gen out/Release --root-target=//cef:cef_android \
     --args='target_os="android" target_cpu="arm64" is_android=true use_cef=true ...'
-ninja -C out/Release libcef libcef_dll_wrapper
+ninja -C out/Release cef:libcef cef:libcef_dll_wrapper
 ```
 
 ### The root of the build
 
 The root is **not** the root of Chromium.  The root of Chromium is
-`//:gn_all`, which configures every test of the tree, and one of those
-tests is not configured for Android:
-
-```text
-ERROR at //base/test/BUILD.gn:742:18: Item not found
-    configs -= [ "//build/config/android:hide_all_but_jni_onload" ]
-```
+`//:gn_all`, which configures every test of the tree.
 
 The root is `//cef:cef_android`, a group that the patch of the service
 adds to the tree of CEF: the engine and the shim of the C API, and
 nothing else.  The group of CEF that is in the tree (`//cef:cef`) is the
 sample applications, not the engine.
 
-### The patch of the service
+The label goes into `--root-target=`, and the two are not
+interchangeable: `--root=` names the **directory** that `gn` reads its
+`.gn` file from, and a label in it is read as a path.  The build then
+stops with a message about a path that does not exist:
+
+```text
+ERROR Root source path not found.
+The path "//cef:cef_android" doesn't exist.
+```
+
+The targets of Ninja are named by their **label** too — `cef:libcef`
+rather than `libcef` — because Ninja writes a phony for every GN target
+under its label, and the file name of a target is not unique in a tree
+this size.
+
+### The patches of the service
 
 CEF has no Android target, and the build says so in the only way it can.
 Its own `BUILD.gn` asserts three flags that Chromium turns off for
@@ -206,6 +215,40 @@ patch that the service carries relaxes the assertions of CEF for Android
 instead of turning on flags that Chromium refuses, and it adds the group
 that is the root of the build.  It is a diff against the pinned commit of
 CEF, it is applied to the tree after the checkout, and it is idempotent.
+
+The group is test-only, because `libcef` is: CEF marks the engine as
+test-only so that it may depend on `libcef_test_support`, which is
+test-only.  GN refuses a dependency of a normal target on a test-only
+one:
+
+```text
+ERROR at //cef/BUILD.gn:1:1: Test-only dependency not allowed.
+```
+
+There is a second patch, and it goes to the tree of **Chromium**.  CEF's
+own patcher applies a patch of CEF to `base/test/BUILD.gn` that changes
+the type of the target of the trace processor from a `shared_library` to
+a `component`.  On Android a `component` is a `static_library` —
+Chromium asserts that Android is never a component build — and the
+default configurations of a `static_library` do not carry
+`//build/config/android:hide_all_but_jni_onload`, which only shared
+libraries get.  The target then tries to remove a config that was never
+there:
+
+```text
+ERROR at //base/test/BUILD.gn:742:18: Item not found
+    configs -= [ "//build/config/android:hide_all_but_jni_onload" ]
+```
+
+The patch of the service changes the condition of that removal so that it
+happens only for the target type that carries the config.  It is applied
+**after** the patches of CEF, because CEF's patcher rewrites that file,
+and it is a diff against the pinned commit of Chromium, so a Chromium
+that changes the line stops the build with a message that says so.
+
+Both patches are applied in exactly three states — already there, fits,
+or does not fit — and the result is read back, because a patch that git
+accepted and that did not change the file is not a patch.
 
 The arguments come from the manifest and are printed before the build runs,
 so a wrong argument shows up in the log of the build rather than in a

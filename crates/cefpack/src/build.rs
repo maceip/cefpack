@@ -17,7 +17,7 @@ use std::{
 
 use anyhow::{bail, Context, Result};
 
-use crate::{layout::Layout, plan::Plan, BundleManifest, BUNDLE_SCHEMA};
+use crate::{layout::Layout, patch, plan::Plan, BundleManifest, BUNDLE_SCHEMA};
 
 /// The result of a build.
 #[derive(Debug, Clone)]
@@ -52,6 +52,11 @@ pub fn build(plan: &Plan, debug: bool) -> Result<BuildOutput> {
 
     apply_patches(plan, &cef_dir)?;
 
+    // The patch of the service for the tree of Chromium comes **after** the
+    // patches of CEF: CEF's patcher rewrites `base/test/BUILD.gn`, and the
+    // patch of the service corrects a line of that file for Android.
+    apply_chromium_patch(plan)?;
+
     let args = build_args(plan, debug);
     log::info!("gn gen with {args}");
 
@@ -66,14 +71,21 @@ pub fn build(plan: &Plan, debug: bool) -> Result<BuildOutput> {
             plan.source_root.display()
         )
     })?;
+    // `--root=` names a **directory**: the root of the source tree that `gn`
+    // reads the `.gn` file from.  The **label** of the target that the build
+    // is rooted at goes into `--root-target=`.
+    //
+    // Passing the label to `--root=` is not a warning, it is a hard error
+    // with a misleading message:
+    //
+    //     ERROR Root source path not found.
+    //     The path "//cef:cef_android" doesn't exist.
+    //
+    // because `gn` reads the value as a path and looks for a directory of
+    // that name.
     let status = Command::new(&gn)
         .current_dir(plan.chromium_dir())
-        .args([
-            "gen",
-            out.to_string_lossy().as_ref(),
-            &format!("--root={}", plan.manifest.root_target()),
-            &format!("--args={args}"),
-        ])
+        .args(gn_gen_arguments(&out, plan.manifest.root_target(), &args))
         .env("PATH", path_with_depot_tools(plan))
         .status()
         .with_context(|| format!("cannot run {}", gn.display()))?;
@@ -84,6 +96,11 @@ pub fn build(plan: &Plan, debug: bool) -> Result<BuildOutput> {
     // `libcef` is the engine and `libcef_dll_wrapper` is the C API shim.
     // Both are needed: the application links the shim, the shim calls the
     // engine.
+    //
+    // The targets are named by their **label** and not by their file name.
+    // Ninja writes a phony for every GN target under the label of the
+    // target — `cef:libcef` — and one under the file name as well, but the
+    // file name is not unique in a tree this size, and the label always is.
     let ninja = plan.build_tool("ninja").ok_or_else(|| {
         anyhow::anyhow!(
             "no ninja: neither depot_tools at {} nor the checkout at {} has it",
@@ -102,8 +119,8 @@ pub fn build(plan: &Plan, debug: bool) -> Result<BuildOutput> {
             "-C",
             &out.to_string_lossy(),
             &format!("-j{jobs}"),
-            "libcef",
-            "libcef_dll_wrapper",
+            "cef:libcef",
+            "cef:libcef_dll_wrapper",
         ])
         .env("PATH", path_with_depot_tools(plan))
         .status()
@@ -117,6 +134,29 @@ pub fn build(plan: &Plan, debug: bool) -> Result<BuildOutput> {
         out_dir: plan.out_dir.clone(),
         bundle,
     })
+}
+
+/// The arguments of `gn gen`.
+///
+/// The function is separate from the call so that the arguments can be read
+/// by a test: the difference between `--root=` and `--root-target=` is the
+/// difference between a build that configures and a build that stops with
+///
+/// ```text
+/// ERROR Root source path not found.
+/// The path "//cef:cef_android" doesn't exist.
+/// ```
+///
+/// and it is not a difference that a reading of the code would catch.
+fn gn_gen_arguments(out: &Path, root_target: &str, args: &str) -> Vec<String> {
+    vec![
+        "gen".to_string(),
+        out.to_string_lossy().to_string(),
+        // The **label** of the root target.  `--root=` takes a directory and
+        // `--root-target=` takes a label; the two are not interchangeable.
+        format!("--root-target={root_target}"),
+        format!("--args={args}"),
+    ]
 }
 
 /// Apply the patches of CEF to Chromium.
@@ -143,6 +183,29 @@ fn apply_patches(plan: &Plan, cef_dir: &Path) -> Result<()> {
     if !status.success() {
         bail!("the patcher failed with {status}");
     }
+    Ok(())
+}
+
+/// Apply the patch of the service to the tree of Chromium.
+///
+/// The patch corrects one line of `base/test/BUILD.gn` that Android cannot
+/// accept, and it must come after the patches of CEF: CEF's own patcher
+/// rewrites that file, and the correction is written against the lines
+/// around the one it changes.
+///
+/// The step is idempotent, like every other patch of the service: a tree
+/// that already carries the patch is left alone.
+fn apply_chromium_patch(plan: &Plan) -> Result<()> {
+    let chromium_dir = plan.chromium_dir();
+    patch::apply_patch(&chromium_dir, patch::CHROMIUM_ANDROID_PATCH, "Chromium")?;
+
+    // The result is read back, because a patch that git accepted and that
+    // did not change the file is not a patch.
+    patch::verify(
+        &chromium_dir,
+        "base/test/BUILD.gn",
+        &["if (is_android && _target_type == \"shared_library\") {"],
+    )?;
     Ok(())
 }
 
@@ -606,5 +669,37 @@ mod tests {
         std::fs::write(layout.license(), "").expect("can write");
         assert_eq!(resource_names(&layout), vec!["icudtl.dat".to_string()]);
         assert_eq!(licence_names(&layout), vec!["LICENSE.txt".to_string()]);
+    }
+
+    #[test]
+    fn the_root_of_the_build_is_a_label_and_not_a_path() {
+        // `gn` reads `--root=` as a directory and `--root-target=` as a
+        // label.  A label in `--root=` stops the build with
+        //
+        //     ERROR Root source path not found.
+        //     The path "//cef:cef_android" doesn't exist.
+        //
+        let arguments = gn_gen_arguments(
+            Path::new("/build/out"),
+            "//cef:cef_android",
+            "target_os=\"android\"",
+        );
+        assert!(
+            arguments
+                .iter()
+                .any(|a| a == "--root-target=//cef:cef_android"),
+            "the label goes into --root-target: {arguments:?}"
+        );
+        assert!(
+            !arguments.iter().any(|a| a.starts_with("--root=")),
+            "--root= takes a directory and must not carry the label: {arguments:?}"
+        );
+    }
+
+    #[test]
+    fn the_output_of_the_build_is_named_in_the_arguments_of_gn() {
+        let arguments = gn_gen_arguments(Path::new("/build/out"), "//cef:cef_android", "");
+        assert_eq!(arguments[0], "gen");
+        assert_eq!(arguments[1], "/build/out");
     }
 }

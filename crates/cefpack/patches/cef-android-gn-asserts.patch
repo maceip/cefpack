@@ -31,7 +31,14 @@ index 2018b0d..8c456a1 100644
 +
 +# The root of the build of an engine for Android: the engine, and the shim
 +# of the C API that the application links against.
++#
++# The group is test-only because `libcef` is: CEF marks the engine as
++# test-only so that it may depend on `libcef_test_support`, which is
++# test-only.  GN refuses a dependency of a normal target on a test-only one:
++#
++#     ERROR at //cef/BUILD.gn:1:1: Test-only dependency not allowed.
 +group("cef_android") {
++  testonly = true
 +  deps = [
 +    ":libcef",
 +    ":libcef_dll_wrapper",
