@@ -167,6 +167,53 @@ else
   LIBCLANG_PATH=""
 fi
 
+# --- pkg-config -------------------------------------------------------------
+# The build of Chromium looks the packages of the *host* up — the NSS, the
+# D-Bus and the Udev among them — and it does that with `pkg-config`.  A
+# container that has no desktop has no `pkg-config`, and the build stops with
+# a message about a file that is not there:
+#
+#     FileNotFoundError: [Errno 2] No such file or directory: 'pkg-config'
+#
+# `pkgconf` is the `pkg-config` of the distribution, written without the
+# library of the desktop, and the three packages that carry it are unpacked
+# into the toolchain — without a root, which is what a container has.
+#
+# The pins are the checksums of the Debian archive, and every file is
+# checked against its pin before it is unpacked.
+install_pkg_config() {
+  local ROOT="${TOOLCHAIN}/host-tools"
+  local BASE="https://deb.debian.org/debian/pool/main/p/pkgconf"
+  if [ -x "${ROOT}/bin/pkg-config" ]; then
+    return 0
+  fi
+  mkdir -p "${ROOT}"
+  local PACKAGE
+  for PACKAGE in \
+    "pkgconf_1.8.1-1_amd64.deb 4e3ce982b5fedc6c6119268435504a64f5ffcc6d93aaecaea902d816eba1215f" \
+    "pkgconf-bin_1.8.1-1_amd64.deb 8fb5a8f83e46ad04b4cf02651ceec56c0611a335cf0d30780d859a95d0400174" \
+    "libpkgconf3_1.8.1-1_amd64.deb da01fb901123ae498c36387a32240e09e1f2866810146c5a574273f7eaf31093"; do
+    set -- ${PACKAGE}
+    local FILE="$1"
+    local SHA="$2"
+    local ARCHIVE="${ROOT}/${FILE}"
+    if [ ! -f "${ARCHIVE}" ]; then
+      echo "pkg-config: ${FILE}"
+      curl -fsSL --retry 3 -o "${ARCHIVE}" "${BASE}/${FILE}" || return 1
+    fi
+    local GOT
+    GOT="$(sha256sum "${ARCHIVE}" | cut -d' ' -f1)"
+    if [ "${GOT}" != "${SHA}" ]; then
+      echo "pkg-config: the checksum of ${FILE} is ${GOT} and the pin says ${SHA}" >&2
+      return 1
+    fi
+    dpkg-deb -x "${ARCHIVE}" "${ROOT}" || return 1
+  done
+  # `pkgconf` is the program; the name that the build calls is `pkg-config`.
+  ln -sf pkgconf "${ROOT}/bin/pkg-config"
+  [ -x "${ROOT}/bin/pkg-config" ] || return 1
+}
+
 # --- the environment -------------------------------------------------------
 # The JDK: one that the machine already has, unless the toolchain carries its
 # own.  The build of Chromium needs a JDK, and the SDK manager needs one too.
@@ -191,7 +238,11 @@ export CEF_DEPOT_TOOLS=${DEPOT}
 export CARGO_HOME=${CARGO_HOME}
 export RUSTUP_HOME=\${RUSTUP_HOME:-${RUSTUP_HOME}}
 export LIBCLANG_PATH=\${LIBCLANG_PATH:-${LIBCLANG_PATH}}
-export PATH=\${CARGO_HOME}/bin:\${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin:\${CEF_DEPOT_TOOLS}:\${PATH}
+# The `pkg-config` of the toolchain, and the library it needs.  The build of
+# Chromium looks the packages of the host up with it.
+export CEF_HOST_TOOLS=${TOOLCHAIN}/host-tools
+export LD_LIBRARY_PATH=\${CEF_HOST_TOOLS}/usr/lib/x86_64-linux-gnu:\${LD_LIBRARY_PATH}
+export PATH=\${CARGO_HOME}/bin:\${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin:\${CEF_DEPOT_TOOLS}:\${CEF_HOST_TOOLS}/bin:\${PATH}
 EOF
 }
 
@@ -210,6 +261,18 @@ if [ "${RUST_ONLY}" = "1" ]; then
   echo "done.  Run: source ${TOOLCHAIN}/env.sh"
   exit 0
 fi
+
+# The `pkg-config` of the host.  It is installed with the rest of the
+# toolchain, and not with the Rust: the checkout of the sources does not
+# need it, and the container has to be empty for the checkout.
+install_pkg_config || {
+  echo "no pkg-config: the build of Chromium cannot look the packages of the host up" >&2
+  exit 1
+}
+
+# The environment is written again, because the `pkg-config` and the library
+# it needs are only on the path now.
+write_environment
 
 echo
 echo "done.  Run: source ${TOOLCHAIN}/env.sh"

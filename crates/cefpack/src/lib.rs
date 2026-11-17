@@ -148,6 +148,22 @@ pub fn sha256_bytes(bytes: &[u8]) -> String {
         .collect()
 }
 
+/// Check a body against a checksum that is pinned.
+///
+/// The comparison is not a warning: a file whose checksum is not the one
+/// that is pinned is a file that is not the one that was asked for, and
+/// nothing that is built from it can be trusted.
+pub fn verify_sha256(body: &[u8], expected: &str, what: &str) -> anyhow::Result<()> {
+    let digest = sha256_bytes(body);
+    if digest != expected.trim().to_lowercase() {
+        anyhow::bail!(
+            "the checksum of {what} is {digest} and the pin says {}",
+            expected.trim()
+        );
+    }
+    Ok(())
+}
+
 /// The directory of this crate, which holds the pinned manifest.
 /// Where the manifest of the service is.
 ///

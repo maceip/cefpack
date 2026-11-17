@@ -390,6 +390,99 @@ pub fn sync(plan: &Plan, tree: &SourceTree) -> Result<()> {
     Ok(())
 }
 
+/// Fetch the sysroot of the host.
+///
+/// Chromium's DEPS names the sysroot and pins it, but the condition that the
+/// DEPS carries — `non_git_source` — is false for a checkout that is made
+/// with git, which is how this service makes its checkout.  `gclient` does
+/// not fetch it, and the build stops with a message about a `pkg-config`
+/// that is not there:
+///
+/// ```text
+/// FileNotFoundError: [Errno 2] No such file or directory: 'pkg-config'
+/// ```
+/// The pin is Chromium's own — the bucket, the object and the checksum are
+/// the ones of the DEPS file of the pinned revision — and the tree is asked
+/// to agree with it before anything is downloaded.  The file that is
+/// downloaded is checked against the checksum, and the verdict is the
+/// directory that is left behind.
+pub fn fetch_sysroot(plan: &Plan, manifest: &crate::manifest::Manifest) -> Result<()> {
+    let sysroot = &manifest.sysroot;
+    if sysroot.bucket.is_empty() || sysroot.object.is_empty() || sysroot.sha256.is_empty() {
+        log::info!("the manifest names no sysroot; the build asks the host for its packages");
+        return Ok(());
+    }
+
+    let chromium = plan.chromium_dir();
+    let target = chromium.join(&sysroot.path);
+    if target.join("usr/lib/pkgconfig").is_dir() {
+        log::info!("the sysroot is already at {}", target.display());
+        return Ok(());
+    }
+
+    // The tree has to agree with the pin: the DEPS of the pinned revision
+    // names the object and the checksum, and a pin that the tree does not
+    // know is a pin that was made up.
+    let deps = chromium.join("DEPS");
+    let deps = std::fs::read_to_string(&deps)
+        .with_context(|| format!("cannot read {}", deps.display()))?;
+    for needle in [&sysroot.object, &sysroot.sha256] {
+        if !deps.contains(needle.as_str()) {
+            bail!(
+                "the DEPS of Chromium do not name the sysroot that the manifest pins ({needle}); \
+                 the pin and the tree have drifted apart"
+            );
+        }
+    }
+
+    let url = format!(
+        "https://storage.googleapis.com/{}/{}",
+        sysroot.bucket, sysroot.object
+    );
+    log::info!("fetching the sysroot from {url}");
+    let response = ureq::get(&url)
+        .call()
+        .with_context(|| format!("cannot fetch {url}"))?;
+    let mut body = Vec::new();
+    std::io::copy(&mut response.into_reader(), &mut body)
+        .with_context(|| format!("cannot read {url}"))?;
+    if sysroot.size != 0 && body.len() as u64 != sysroot.size {
+        bail!(
+            "the sysroot is {} bytes and the pin says {}",
+            body.len(),
+            sysroot.size
+        );
+    }
+    crate::verify_sha256(&body, &sysroot.sha256, "the sysroot")?;
+
+    // The archive is unpacked with `tar`, which every machine that builds
+    // Chromium has.  The verdict is the directory: an archive that unpacks
+    // into nothing is an archive that was not the one that was pinned.
+    let archive = plan.source_root.join("sysroot.tar.gz");
+    std::fs::write(&archive, &body)
+        .with_context(|| format!("cannot write {}", archive.display()))?;
+    std::fs::create_dir_all(&target)
+        .with_context(|| format!("cannot create {}", target.display()))?;
+    let status = Command::new("tar")
+        .arg("xf")
+        .arg(&archive)
+        .arg("-C")
+        .arg(&target)
+        .status()
+        .with_context(|| "cannot run tar")?;
+    if !status.success() {
+        bail!("the sysroot could not be unpacked: {status}");
+    }
+    if !target.join("usr/lib/pkgconfig").is_dir() {
+        bail!(
+            "the sysroot was unpacked into {} and it holds no packages",
+            target.display()
+        );
+    }
+    log::info!("the sysroot is at {}", target.display());
+    Ok(())
+}
+
 /// Fetch the headers of Chromium that the C API of CEF needs.
 ///
 /// The public headers of CEF include a few headers of Chromium.  They are
@@ -643,6 +736,45 @@ mod tests {
                 "the root of the build carries {target}"
             );
         }
+    }
+
+    #[test]
+    fn the_sysroot_of_the_manifest_is_pinned_by_chromium() {
+        // The sysroot is named by the DEPS of Chromium, and the pin of the
+        // manifest has to be the pin of the DEPS.  The check is made before
+        // anything is downloaded, so that a pin that was made up is caught
+        // before it is used.
+        let manifest = crate::manifest::Manifest::read(&crate::manifest_path())
+            .expect("the manifest of the service");
+        let sysroot = &manifest.sysroot;
+        assert!(
+            !sysroot.bucket.is_empty() && !sysroot.object.is_empty(),
+            "the manifest names the sysroot"
+        );
+        assert_eq!(
+            sysroot.object, sysroot.sha256,
+            "the object of the sysroot is named by its checksum"
+        );
+        assert!(
+            sysroot.path.contains("debian_bullseye_amd64-sysroot"),
+            "the sysroot lands where Chromium looks for it: {}",
+            sysroot.path
+        );
+    }
+
+    #[test]
+    fn the_checksum_of_a_body_is_checked_against_the_pin() {
+        // A file whose checksum is not the one that is pinned is a file that
+        // is not the one that was asked for.
+        let body = b"the sysroot";
+        let good = crate::sha256_bytes(body);
+        crate::verify_sha256(body, &good, "the sysroot").expect("the checksum is the one");
+        let error = crate::verify_sha256(body, "0000", "the sysroot")
+            .expect_err("the checksum is not the one");
+        assert!(
+            error.to_string().contains("the checksum of the sysroot"),
+            "the error says what was checked: {error}"
+        );
     }
 
     #[test]

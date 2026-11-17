@@ -28,6 +28,10 @@ pub struct Manifest {
     pub target: Target,
     /// The toolchain that has to be used for the build.
     pub toolchain: Toolchain,
+    /// The sysroot of the host: the Debian userland that the build looks
+    /// the packages of the host up in.
+    #[serde(default)]
+    pub sysroot: Sysroot,
     /// The GN arguments of the Chromium build.
     pub gn: Gn,
     /// The headers of Chromium that the C API needs.
@@ -96,6 +100,45 @@ pub struct Toolchain {
     pub ndk_tag: String,
     /// The clang version that the NDK ships.
     pub clang_version: String,
+}
+
+/// The sysroot of the host.
+///
+/// Chromium's DEPS names the sysroot and pins it: a bucket, an object and a
+/// checksum.  The condition that the DEPS carries — `non_git_source` — is
+/// false for a checkout that is made with git, which is how this service
+/// makes its checkout, so `gclient` does not fetch it.
+///
+/// The sysroot is the Debian userland that the build looks the packages of
+/// the *host* up in: the NSS, the D-Bus and the Udev among them.  Without it
+/// the build asks the host for them, and a container that has no root and no
+/// desktop has neither — and the build stops with a message about a
+/// `pkg-config` that is not there.
+///
+/// The pin below is Chromium's own: it is the one of the DEPS file of the
+/// pinned revision, and the service checks that the tree agrees with it
+/// before it downloads anything.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct Sysroot {
+    /// The bucket of the object.
+    #[serde(default)]
+    pub bucket: String,
+    /// The name of the object in the bucket.
+    #[serde(default)]
+    pub object: String,
+    /// The checksum of the object.
+    #[serde(default)]
+    pub sha256: String,
+    /// The size of the object, in bytes.
+    #[serde(default)]
+    pub size: u64,
+    /// Where the sysroot belongs, relative to the root of the tree.
+    #[serde(default = "default_sysroot_path")]
+    pub path: String,
+}
+
+fn default_sysroot_path() -> String {
+    "src/build/linux/debian_bullseye_amd64-sysroot".to_string()
 }
 
 /// The GN arguments of the Chromium build.
@@ -275,6 +318,37 @@ impl Manifest {
                     .map(|(k, v)| (k.to_string(), v.to_string()))
             })
             .collect()
+    }
+
+    /// The arguments of a build of the **content** of Chromium, without the
+    /// desktop browser around it.
+    ///
+    /// The engine that is wanted is the layer of the content and Blink, and
+    /// not the browser of the desktop: the flags that describe the browser
+    /// — the views, the PDF viewer, the plugins and the configuration of the
+    /// desktop on Android — are turned off, and everything else is the
+    /// arguments of the manifest.
+    ///
+    /// The measurement of the link uses these, so that the two builds — the
+    /// engine and the measurement — agree on the configuration of Chromium
+    /// that they share.
+    pub fn gn_args_for_content(&self, debug: bool) -> Vec<String> {
+        let desktop: [&str; 4] = [
+            "is_desktop_android",
+            "toolkit_views",
+            "enable_pdf",
+            "enable_plugins",
+        ];
+        let mut args: Vec<String> = Vec::new();
+        for argument in self.gn_args(debug) {
+            let key = argument.split_once('=').map(|(k, _)| k).unwrap_or("");
+            if desktop.contains(&key) {
+                args.push(format!("{key}=false"));
+            } else {
+                args.push(argument);
+            }
+        }
+        args
     }
 }
 

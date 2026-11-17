@@ -47,6 +47,27 @@ ndk_tag = "r27c"
 # The clang that the NDK ships.
 clang_version = "18"
 
+# The sysroot of the host: the Debian userland that the build looks the
+# packages of the host up in — the NSS, the D-Bus and the Udev among them.
+#
+# Chromium's DEPS names the sysroot and pins it, but the condition that the
+# DEPS carries — `non_git_source` — is false for a checkout that is made
+# with git, which is how this service makes its checkout.  `gclient` does
+# not fetch it, and the build stops with a message about a `pkg-config`
+# that is not there:
+#
+#     FileNotFoundError: [Errno 2] No such file or directory: 'pkg-config'
+#
+# The pin below is Chromium's own — it is the one of the DEPS file of the
+# pinned revision, and the service checks that the tree agrees with it
+# before it downloads anything.
+[sysroot]
+bucket = "chrome-linux-sysroot"
+object = "52d61d4446ffebfaa3dda2cd02da4ab4876ff237853f46d273e7f9b666652e1d"
+sha256 = "52d61d4446ffebfaa3dda2cd02da4ab4876ff237853f46d273e7f9b666652e1d"
+size = 19727236
+path = "src/build/linux/debian_bullseye_amd64-sysroot"
+
 [gn]
 # The root of the build.  It is the group that the patch of the service adds
 # to the tree of CEF, and not the root of Chromium: the root of Chromium is
@@ -102,7 +123,12 @@ args = [
   "is_client=false",
   "is_server=false",
   "is_official_build=true",
-  "use_sysroot=false",
+  # The sysroot of the host: the Debian userland that the build looks the
+  # packages of the host up in — the NSS, the D-Bus and the Udev among them.
+  # The sysroot is fetched by the service, because `gclient` does not fetch
+  # it: the condition of its entry in the DEPS is false for a checkout that
+  # is made with git.
+  "use_sysroot=true",
   "use_custom_libcxx=true",
   "use_lld=true",
   "is_clang=true",
@@ -111,7 +137,10 @@ args = [
   "treat_warnings_as_errors=false",
   "enable_nacl=false",
   "chrome_pgo_phase=0",
-  "android_min_sdk_version=29",
+  # The minimum SDK of Android is not an argument: Chromium sets it to 29,
+  # and an argument that no build file declares is an argument that says
+  # nothing.
+  #
   # The flags that CEF asks for on every platform.  The three that CEF
   # asserts in its own BUILD.gn are *not* here: Chromium turns them off for
   # Android, and the patch that the service carries relaxes the assertions

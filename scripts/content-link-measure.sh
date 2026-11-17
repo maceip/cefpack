@@ -82,29 +82,24 @@ mkdir -p "${OUT}"
 # the measurement and the service agree on what the tree looks like.
 "${ROOT}/target/release/cefpack" lastchange
 
-cat > "${OUT}/args.gn" <<EOF
-target_os = "android"
-target_cpu = "arm64"
-is_android = true
-is_debug = false
-is_official_build = false
-symbol_level = 0
-is_component_build = false
+# The arguments of the build come from the service, so that the
+# measurement and the engine agree on the configuration of Chromium that
+# they share.  The flags of the desktop browser are turned off: the
+# measurement is of the layer of the content.
+#
+# The flags that the bring-up adds are the ones that keep the link small:
+# no symbols, no debug information, no thin LTO, and no component build.
+CEF_CONTENT=1 "${ROOT}/target/release/cefpack" args \
+  | sed 's/=/ = /' \
+  > "${OUT}/args.gn"
+cat >> "${OUT}/args.gn" <<EOF
 use_thin_lto = false
-use_lld = true
-is_clang = true
-use_custom_libcxx = true
-treat_warnings_as_errors = false
-enable_nacl = false
-chrome_pgo_phase = 0
-android_min_sdk_version = 29
 android_sdk_root = "${TOOLCHAIN}/android-sdk"
 android_ndk_root = "${TOOLCHAIN}/ndk-27.2.12479018"
 android_ndk_version = "27.2.12479018"
 EOF
 gn gen "${OUT}" --root-target=//content/shell:content_link_measurement
 echo "the build is configured"
-
 # --- 6. the sampler --------------------------------------------------------
 # The sampler reads the memory of the container and the largest process in
 # it, once a second, for the whole of the build.  The link is the step

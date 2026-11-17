@@ -68,6 +68,25 @@ fn run(arguments: &[String]) -> Result<()> {
                 .unwrap_or_else(default_source_dir);
             command_abi(&cef_dir)
         }
+        "args" => {
+            // The arguments of the build, as the manifest holds them.  The
+            // measurement of the link writes them into its `args.gn`, and
+            // it takes them from here, so that the two cannot drift apart.
+            let debug = std::env::var("CEF_DEBUG").is_ok();
+            // With `CEF_CONTENT=1`, the flags of the desktop browser are
+            // turned off: the measurement is of the layer of the content.
+            let content = std::env::var("CEF_CONTENT").is_ok();
+            let manifest = manifest()?;
+            let arguments = if content {
+                manifest.gn_args_for_content(debug)
+            } else {
+                manifest.gn_args(debug)
+            };
+            for argument in arguments {
+                println!("{argument}");
+            }
+            Ok(())
+        }
         "lastchange" => {
             // The hook of Chromium that writes the time of the last change.
             // The build is configured while the hooks are skipped, so this
@@ -266,7 +285,8 @@ fn command_plan() -> Result<()> {
 
 /// Check out the pinned CEF sources.
 fn command_fetch() -> Result<()> {
-    let plan = Plan::resolve(manifest()?)?;
+    let manifest = manifest()?;
+    let plan = Plan::resolve(manifest.clone())?;
     // The checkout of the sources writes tens of gigabytes through the
     // memory of the machine, and the container of the build has a ceiling
     // of sixteen gigabytes.  The pages are given back while the checkout
@@ -276,6 +296,10 @@ fn command_fetch() -> Result<()> {
         println!("the sources are at {}", tree.cef_dir.display());
         fetch::sync(&plan, &tree)?;
         println!("the dependencies are in sync");
+        // The sysroot is not fetched by `gclient`: the condition of its
+        // entry in the DEPS is false for a checkout that is made with git.
+        fetch::fetch_sysroot(&plan, &manifest)?;
+        println!("the sysroot is in place");
         Ok::<(), anyhow::Error>(())
     })
 }
