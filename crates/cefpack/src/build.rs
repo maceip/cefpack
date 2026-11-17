@@ -427,7 +427,7 @@ pub fn apply_chromium_patch(plan: &Plan) -> Result<()> {
     patch::verify(
         &chromium_dir,
         "chrome/test/permissions/BUILD.gn",
-        &["assert(!is_android || cef_content_only)"],
+        &["assert((!is_android) || cef_content_only)"],
     )?;
 
     // The seventh patch of the service: the two windows of the desktop that
