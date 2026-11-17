@@ -196,19 +196,81 @@ pub fn apply_patch(tree: &Path, patch: &str, name: &str) -> Result<()> {
         log::info!("{tree:?} already carries the patch of {name}");
     } else {
         let check = git(&["apply", "--check"])?;
-        if !check.status.success() {
-            let detail = String::from_utf8_lossy(&check.stderr).trim().to_string();
-            bail!("the patch of {name} does not fit {tree:?}: {detail}");
+        if check.status.success() {
+            let applied = git(&["apply"])?;
+            if !applied.status.success() {
+                let detail = String::from_utf8_lossy(&applied.stderr).trim().to_string();
+                bail!("the patch of {name} could not be applied: {detail}");
+            }
+            log::info!("the patch of {name} is applied to {tree:?}");
+        } else {
+            // The tree carries an **older** version of the patch: the file
+            // has the lines of the old one and not the lines of the new
+            // one, and the patch fits neither the old tree nor the pinned
+            // one.  The files that the patch names are given back the
+            // content that the pinned revision has, and the patch is
+            // tried once more.
+            //
+            // A file that the patches of CEF also touch is *not* given
+            // back: the patch of the service is made against the tree
+            // that the patches of CEF have made, and the first branch
+            // above — the patch is already there — is the one that
+            // applies to it.
+            let detail_before = String::from_utf8_lossy(&check.stderr).trim().to_string();
+            let mut restored = false;
+            for path in files_of(patch) {
+                let status = Command::new("git")
+                    .current_dir(&tree)
+                    .args(["checkout", "--"])
+                    .arg(&path)
+                    .status()
+                    .with_context(|| format!("cannot run git in {}", tree.display()))?;
+                if status.success() {
+                    restored = true;
+                }
+            }
+            let check = git(&["apply", "--check"])?;
+            if !check.status.success() {
+                let detail = String::from_utf8_lossy(&check.stderr).trim().to_string();
+                bail!(
+                    "the patch of {name} does not fit {tree:?}: {detail}\n(it did not fit before either: {detail_before})"
+                );
+            }
+            let applied = git(&["apply"])?;
+            if !applied.status.success() {
+                let detail = String::from_utf8_lossy(&applied.stderr).trim().to_string();
+                bail!("the patch of {name} could not be applied: {detail}");
+            }
+            log::info!(
+                "the patch of {name} is applied to {tree:?} (the tree carried an older version: {restored})"
+            );
         }
-        let applied = git(&["apply"])?;
-        if !applied.status.success() {
-            let detail = String::from_utf8_lossy(&applied.stderr).trim().to_string();
-            bail!("the patch of {name} could not be applied: {detail}");
-        }
-        log::info!("the patch of {name} is applied to {tree:?}");
     }
     let _ = std::fs::remove_file(&file);
     Ok(())
+}
+
+/// The files that a patch names.
+///
+/// The names are the ones of the side that the patch writes to — the lines
+/// that begin with `+++` — and the ones that begin with `---` are the
+/// files that the patch reads.
+fn files_of(patch: &str) -> Vec<String> {
+    let mut files = Vec::new();
+    for line in patch.lines() {
+        let Some(rest) = line.strip_prefix("+++ ") else {
+            continue;
+        };
+        let name = rest.split('\t').next().unwrap_or(rest).trim();
+        let name = name.strip_prefix("b/").unwrap_or(name);
+        if name == "/dev/null" || name.is_empty() {
+            continue;
+        }
+        if !files.iter().any(|file| file == name) {
+            files.push(name.to_string());
+        }
+    }
+    files
 }
 
 /// A path, made absolute against the working directory.
@@ -443,6 +505,50 @@ mod tests {
             CHROMIUM_TOOLKIT_VIEWS_PATCH.contains("assert(toolkit_views == (is_android) ||"),
             "the flag is not tied to the desktop any more: {CHROMIUM_TOOLKIT_VIEWS_PATCH}"
         );
+    }
+
+    #[test]
+    fn the_files_of_a_patch_are_the_ones_it_writes_to() {
+        let patch = "diff --git a/BUILD.gn b/BUILD.gn\n--- a/BUILD.gn\n+++ b/BUILD.gn\n@@ -1 +1 @@\n-a\n+b\n";
+        assert_eq!(files_of(patch), vec!["BUILD.gn".to_string()]);
+        let patch = "--- a/one\n+++ b/one\n--- a/two\n+++ b/two\n";
+        assert_eq!(files_of(patch), vec!["one".to_string(), "two".to_string()]);
+    }
+
+    #[test]
+    fn an_older_version_of_a_patch_is_replaced() {
+        // A tree that was patched with an older version of the patch does
+        // not fit the new one, and the files that the patch names are given
+        // back the content of the pinned revision before it is tried
+        // again.
+        let dir = tempfile::tempdir().expect("a temporary directory");
+        let tree = dir.path().join("tree");
+        std::fs::create_dir_all(&tree).expect("the tree is created");
+        let git = |args: &[&str]| {
+            Command::new("git")
+                .current_dir(&tree)
+                .args(args)
+                .output()
+                .expect("git runs")
+        };
+        git(&["init", "-q"]);
+        git(&["config", "user.email", "a@b"]);
+        git(&["config", "user.name", "a"]);
+        std::fs::write(tree.join("file"), "before\n").expect("the file is written");
+        git(&["add", "file"]);
+        git(&["commit", "-qm", "the pinned revision"]);
+
+        // The older version of the patch.
+        let old =
+            "diff --git a/file b/file\n--- a/file\n+++ b/file\n@@ -1 +1 @@\n-before\n+older\n";
+        apply_patch(&tree, old, "old").expect("the older patch fits");
+
+        // The new version of the patch does not fit the tree that carries
+        // the older one, and the file is given back before it is tried.
+        let new = "diff --git a/file b/file\n--- a/file\n+++ b/file\n@@ -1 +1 @@\n-before\n+new\n";
+        apply_patch(&tree, new, "new").expect("the new patch fits after the restore");
+        let text = std::fs::read_to_string(tree.join("file")).expect("can read");
+        assert_eq!(text, "new\n");
     }
 
     #[test]
