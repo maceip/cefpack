@@ -51,7 +51,12 @@ if [ ! -x "${LIM}" ]; then
   (
     cd "${TOOLS_DIR}"
     [ -f package.json ] || printf '{"name":"cef-build-tools","private":true}\n' > package.json
-    npm install --no-audit --no-fund --save-exact "@limrun/api@0.73.2" "lim@0.57.3"
+    # The versions are pinned to the pair that was run against this build:
+    # `lim 0.57.3` with `@limrun/api 0.73.2` ends the command that runs in
+    # the sandbox after about a minute, with an exit code of -1, and the
+    # build of the engine dies with it.  The pair below carries the
+    # checkout of Chromium to its end.
+    npm install --no-audit --no-fund --save-exact "@limrun/api@0.73.1" "lim@0.57.1"
   )
 fi
 
