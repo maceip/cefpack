@@ -65,6 +65,39 @@ args = [
   "target_os=\"android\"",
   "target_cpu=\"arm64\"",
   "is_android=true",
+  # Chromium builds the desktop browser for Android in its own configuration,
+  # and CEF **is** the desktop browser: the engine of CEF is the browser of
+  # Chromium without the shell around it.  The configuration is what turns
+  # on the core of the extensions, which the mobile build of Android leaves
+  # out and which CEF needs:
+  #
+  #     ERROR at //extensions/common/BUILD.gn:15:1: Assertion failed.
+  #     assert(enable_extensions_core)
+  #
+  # Chromium turns the flag on for the desktop build of Android and on for
+  # nothing else:
+  #
+  #     enable_extensions_core =
+  #         enable_extensions || enable_desktop_android_extensions
+  #     enable_desktop_android_extensions = is_desktop_android
+  "is_desktop_android=true",
+  # The framework of the views is the user interface of the desktop
+  # browser, and the browser of CEF is built with it.  Chromium builds it
+  # for the desktop platforms only:
+  #
+  #     toolkit_views = is_mac || is_win || is_linux || is_chromeos || is_fuchsia
+  #
+  # The patch that the service carries to Chromium relaxes the one place
+  # where Chromium ties the flag to the desktop, which is the build of the
+  # resources.
+  "toolkit_views=true",
+  # The CDM of Widevine is a component of the desktop: Chromium names no
+  # path for it on Android and stops the build of the configuration.
+  "enable_library_cdms=false",
+  # The viewer of the PDF and the plugins that it needs.  CEF depends on
+  # both, and Chromium builds neither for Android.
+  "enable_pdf=true",
+  "enable_plugins=true",
   "use_cef=true",
   "is_client=false",
   "is_server=false",
@@ -77,7 +110,6 @@ args = [
   "symbol_level=0",
   "treat_warnings_as_errors=false",
   "enable_nacl=false",
-  "enable_plugin=false",
   "chrome_pgo_phase=0",
   "android_min_sdk_version=29",
   # The flags that CEF asks for on every platform.  The three that CEF

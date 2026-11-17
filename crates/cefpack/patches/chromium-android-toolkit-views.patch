@@ -1,0 +1,12 @@
+diff --git a/tools/grit/grit_args.gni b/tools/grit/grit_args.gni
+--- a/tools/grit/grit_args.gni
++++ b/tools/grit/grit_args.gni
+@@ -15,7 +15,7 @@
+ 
+ # Prefer using this (and excluding specific platforms) when a resource applies
+ # to (most) desktop platforms.
+-assert(toolkit_views ==
++assert(toolkit_views == (is_android) ||
+        (is_chromeos || is_fuchsia || is_linux || is_mac || is_win))
+ 
+ # Variables that are passed to grit with the -D flag.

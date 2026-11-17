@@ -90,6 +90,31 @@ pub const CEF_ANDROID_PATCH: &str = include_str!("../patches/cef-android-gn-asse
 pub const CHROMIUM_ANDROID_PATCH: &str =
     include_str!("../patches/chromium-android-base-test.patch");
 
+/// The patch that lets the framework of the views be built for Android.
+///
+/// Chromium builds the framework of the views — the user interface of the
+/// desktop browser — only for the desktop platforms, and it ties the flag
+/// to them with an assertion in its own build of the resources:
+///
+/// ```text
+/// ERROR at //tools/grit/grit_args.gni:18:1: Assertion failed.
+/// assert(toolkit_views ==
+///        (is_chromeos || is_fuchsia || is_linux || is_mac || is_win))
+/// ```
+///
+/// The flag `toolkit_views` is the switch that says "the user interface is
+/// built with the views", and CEF's browser — the Alloy browser — is built
+/// with the views and cannot exist without them.  The assertion of the
+/// `grit` tool is about the **resources** of the desktop, not about the
+/// framework itself, and it is the only place in Chromium where the two
+/// are tied together.
+///
+/// The patch lets the flag be on for Android as well.  It is written
+/// against the file as CEF's own patcher leaves it, because the service
+/// applies its patches to Chromium **after** CEF's patcher has run.
+pub const CHROMIUM_TOOLKIT_VIEWS_PATCH: &str =
+    include_str!("../patches/chromium-android-toolkit-views.patch");
+
 /// Apply a patch to a tree of sources.
 ///
 /// The step is idempotent: a tree that already carries the patch is left
@@ -334,10 +359,24 @@ mod tests {
     }
 
     #[test]
+    fn the_patch_of_chromium_lets_the_views_be_built_for_android() {
+        // The browser of CEF is built with the framework of the views, and
+        // Chromium builds that framework for the desktop platforms only.
+        // The one place where Chromium ties the flag to the desktop is the
+        // build of the resources, and that is what the patch of the service
+        // relaxes.
+        assert!(
+            CHROMIUM_TOOLKIT_VIEWS_PATCH.contains("assert(toolkit_views == (is_android) ||"),
+            "the flag is not tied to the desktop any more: {CHROMIUM_TOOLKIT_VIEWS_PATCH}"
+        );
+    }
+
+    #[test]
     fn the_hunks_of_the_patches_say_how_long_they_are() {
         for (name, patch) in [
             ("CEF", CEF_ANDROID_PATCH),
             ("Chromium", CHROMIUM_ANDROID_PATCH),
+            ("the views", CHROMIUM_TOOLKIT_VIEWS_PATCH),
         ] {
             let hunks = hunk_lengths(patch);
             assert!(!hunks.is_empty(), "the patch of {name} has hunks");

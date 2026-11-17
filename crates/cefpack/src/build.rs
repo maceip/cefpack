@@ -271,6 +271,20 @@ fn apply_chromium_patch(plan: &Plan) -> Result<()> {
         "base/test/BUILD.gn",
         &["if (is_android && _target_type == \"shared_library\") {"],
     )?;
+
+    // The second patch of the service: the framework of the views, which
+    // the browser of CEF is built with, is built by Chromium for the
+    // desktop platforms only.
+    patch::apply_patch(
+        &chromium_dir,
+        patch::CHROMIUM_TOOLKIT_VIEWS_PATCH,
+        "toolkit-views",
+    )?;
+    patch::verify(
+        &chromium_dir,
+        "tools/grit/grit_args.gni",
+        &["assert(toolkit_views == (is_android) ||"],
+    )?;
     Ok(())
 }
 
