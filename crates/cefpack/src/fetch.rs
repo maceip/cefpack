@@ -136,12 +136,17 @@ pub fn write_gclient(root: &Path, plan: &Plan) -> Result<()> {
     // build of Chromium reads it, and without it the configuration of the
     // Android target stops with:
     //
+    // The value is a list of strings and nothing else: a trailing comma
+    // makes it a tuple *of* a list, and gclient hashes the elements of it:
+    //
+    //     TypeError: unhashable type: 'list'
+    //
     //     ERROR at //build/config/android/config.gni:49:7: Assertion failed.
     //         assert(checkout_android,
     //     Missing native Android toolchain support.  |target_os| in your
     //     .gclient configuration file ... must include "android".
     let content = format!(
-        "target_os = ['android'],\n\nsolutions = [\n  {{\n    'managed': False,\n    'name': 'src',\n    'url': '{chromium_repo}',\n    \
+        "target_os = ['android']\n\nsolutions = [\n  {{\n    'managed': False,\n    'name': 'src',\n    'url': '{chromium_repo}',\n    \
          'custom_vars': {{\n      'checkout_pgo_profiles': False,\n      'source_tarball': False,\n      \
          'siso_version': 'latest',\n    }},\n    'custom_deps': {{}},\n    'deps_file': 'DEPS',\n    \
          'safesync_url': '',\n  }},\n  {{\n    'managed': False,\n    'name': 'src/cef',\n    \
