@@ -399,6 +399,20 @@ pub fn apply_chromium_patch(plan: &Plan) -> Result<()> {
         "BUILD.gn",
         &["if (enable_remoting && target_os != \"android\" &&"],
     )?;
+
+    // The fifth patch of the service: the user interface of the desktop
+    // browser, which the build of the content *reads* — through the
+    // resources of the browser — and which is not built for Android.
+    patch::apply_patch(
+        &chromium_dir,
+        patch::CHROMIUM_DESKTOP_UI_PATCH,
+        "desktop-ui",
+    )?;
+    patch::verify(
+        &chromium_dir,
+        "chrome/browser/ui/BUILD.gn",
+        &["if (toolkit_views && target_os != \"android\") {"],
+    )?;
     Ok(())
 }
 

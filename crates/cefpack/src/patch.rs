@@ -149,6 +149,28 @@ pub const CHROMIUM_LLD_WORKERS_PATCH: &str =
 pub const CHROMIUM_TARGET_OS_PATCH: &str =
     include_str!("../patches/chromium-android-target-os.patch");
 
+/// The patch that lets the desktop browser of Chromium be *read* on Android.
+///
+/// The build of the content for Android reaches the file of the user
+/// interface of the desktop browser, because the base of the user
+/// interface depends on the resources of the browser on Android, and the
+/// resources are in the same file as the browser itself.  Chromium reads
+/// every target of a file that it reads, and the library of the user
+/// interface of the desktop adds its sources under the flag of the views —
+/// a flag that Android has, because Chromium asserts that the views are
+/// built for Android:
+///
+/// ```text
+/// ERROR at //chrome/browser/ui/BUILD.gn:3531:5: Undefined identifier.
+///     sources += [
+/// ```
+///
+/// The sources of the desktop are not built for Android — the browser of
+/// Android is the browser of the mobile, and its user interface is
+/// elsewhere — and the patch says so.
+pub const CHROMIUM_DESKTOP_UI_PATCH: &str =
+    include_str!("../patches/chromium-android-desktop-ui.patch");
+
 /// Apply a patch to a tree of sources.
 ///
 /// The step is idempotent: a tree that already carries the patch is left
@@ -559,6 +581,7 @@ mod tests {
             ("the views", CHROMIUM_TOOLKIT_VIEWS_PATCH),
             ("the workers of the linker", CHROMIUM_LLD_WORKERS_PATCH),
             ("the target of the build", CHROMIUM_TARGET_OS_PATCH),
+            ("the desktop browser", CHROMIUM_DESKTOP_UI_PATCH),
         ] {
             let hunks = hunk_lengths(patch);
             assert!(!hunks.is_empty(), "the patch of {name} has hunks");

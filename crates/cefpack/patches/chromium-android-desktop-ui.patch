@@ -1,0 +1,12 @@
+diff --git a/chrome/browser/ui/BUILD.gn b/chrome/browser/ui/BUILD.gn
+--- a/chrome/browser/ui/BUILD.gn
++++ b/chrome/browser/ui/BUILD.gn
+@@ -3527,7 +3527,7 @@
+     }
+   }
+ 
+-  if (toolkit_views) {
++  if (toolkit_views && target_os != "android") {
+     sources += [
+       "views/frame/base_tab_strip_region_view.cc",
+       "views/frame/base_tab_strip_region_view.h",
