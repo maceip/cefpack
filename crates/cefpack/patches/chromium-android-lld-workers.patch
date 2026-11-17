@@ -1,0 +1,57 @@
+diff --git a/build/toolchain/get_lld_read_workers.py b/build/toolchain/get_lld_read_workers.py
+@@ -4,9 +4,31 @@
+ # found in the LICENSE file.
+ 
+ import multiprocessing
++import os
+ import sys
+ 
+ 
++def memory_limit():
++    """The memory of the machine, in bytes, or zero when it is not known."""
++    for path in ('/sys/fs/cgroup/memory.max',
++                 '/sys/fs/cgroup/memory/memory.limit_in_bytes'):
++        try:
++            with open(path) as handle:
++                value = handle.read().strip()
++        except OSError:
++            continue
++        if value == 'max':
++            continue
++        try:
++            limit = int(value)
++        except ValueError:
++            continue
++        # A number that is huge is the sign of a machine without a limit.
++        if 0 < limit < (1 << 60):
++            return limit
++    return 0
++
++
+ def main():
+     try:
+         cpu_count = multiprocessing.cpu_count()
+@@ -18,6 +40,23 @@
+     # excessive lock contention on high-core machines, but for now we just
+     # scale it linearly.
+     workers = max(1, cpu_count // 4)
++
++    # The workers are bounded by the memory of the machine.  Every worker
++    # that reads a part of the input of a link holds that part in memory,
++    # and the input of a link of Blink is measured in gigabytes: a machine
++    # with ninety-six cores asks for twenty-four workers, and a container
++    # of sixteen gigabytes cannot give them the input of the link.
++    limit = memory_limit()
++    if limit:
++        workers = min(workers, max(1, limit // (2 * 1024 * 1024 * 1024)))
++
++    # The machine that builds says how many workers the link may use.
++    given = os.environ.get('CHROMIUM_LLD_WORKERS')
++    if given:
++        try:
++            workers = max(1, int(given))
++        except ValueError:
++            pass
+     print(workers)
+     return 0
+ 

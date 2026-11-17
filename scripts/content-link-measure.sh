@@ -69,10 +69,13 @@ if ! git apply --check "${ROOT}/scripts/content-link-measure.patch" 2>/dev/null;
 fi
 echo "the target is in the tree"
 
-# The threads of the linker are capped: `ld.lld` reads its input in
-# parallel, and every thread that reads a part of a library of a hundred
-# megabytes is memory that the container does not have.
-python3 "${ROOT}/scripts/cap-the-linker.py" "${SRC}" || true
+# The workers that read the input of the link.  Chromium computes them from
+# the number of the cores — twenty-four on a machine of ninety-six cores —
+# and every one of them holds the part of the input that it reads in
+# memory.  The patch of the service bounds them by the memory of the
+# machine, and the machine says how many it allows.
+export CHROMIUM_LLD_WORKERS="$("${ROOT}/target/release/cefpack" linker-workers)"
+echo "the workers of the linker: ${CHROMIUM_LLD_WORKERS}"
 
 # --- 5. the configuration --------------------------------------------------
 echo "== 5. the configuration =="

@@ -87,6 +87,13 @@ fn run(arguments: &[String]) -> Result<()> {
             }
             Ok(())
         }
+        "linker-workers" => {
+            // The number of workers that read the input of a link.  The
+            // measurement of the link and the build of the engine have to
+            // use the same one.
+            println!("{}", cefpack::plan::linker_workers());
+            Ok(())
+        }
         "patch" => {
             // The patches that the service carries for the tree of Chromium.
             // A build that is not the build of the service — the

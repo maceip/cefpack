@@ -112,6 +112,10 @@ pub fn build(plan: &Plan, debug: bool) -> Result<BuildOutput> {
         .current_dir(plan.chromium_dir())
         .args(gn_gen_arguments(&out, plan.manifest.root_target(), &args))
         .env("PATH", path_with_depot_tools(plan))
+        // The workers that read the input of a link are bounded by the
+        // memory of the machine.  Chromium asks for a quarter of the cores,
+        // and the patch of the service is what reads this.
+        .env("CHROMIUM_LLD_WORKERS", plan.linker_workers().to_string())
         .status()
         .with_context(|| format!("cannot run {}", gn.display()))?;
     if !status.success() {
@@ -370,6 +374,20 @@ pub fn apply_chromium_patch(plan: &Plan) -> Result<()> {
         &chromium_dir,
         "tools/grit/grit_args.gni",
         &["assert(toolkit_views == (is_android) ||"],
+    )?;
+
+    // The third patch of the service: the workers of the linker, which
+    // Chromium computes from the number of the cores and which the memory
+    // of the machine has to bound.
+    patch::apply_patch(
+        &chromium_dir,
+        patch::CHROMIUM_LLD_WORKERS_PATCH,
+        "lld-workers",
+    )?;
+    patch::verify(
+        &chromium_dir,
+        "build/toolchain/get_lld_read_workers.py",
+        &["workers = min(workers, max(1, limit // (2 * 1024 * 1024 * 1024)))"],
     )?;
     Ok(())
 }

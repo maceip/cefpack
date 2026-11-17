@@ -142,6 +142,18 @@ impl Plan {
         }
     }
 
+    /// The number of workers that read the input of a link.
+    ///
+    /// Every worker that reads a part of the input of a link holds that
+    /// part in memory, and the input of a link of Blink is measured in
+    /// gigabytes.  Chromium computes the number of the workers from the
+    /// number of the cores — twenty-four of them on a machine of ninety-six
+    /// cores — and the memory of the container has to bound it: two workers
+    /// for a container of sixteen gigabytes.
+    pub fn linker_workers(&self) -> usize {
+        linker_workers()
+    }
+
     /// Resolve the plan and check the environment.
     ///
     /// Every tool is located by an explicit environment variable first and
@@ -469,6 +481,24 @@ fn find_tool(
         "cannot find the {name}; set {} (searched: {searched})",
         env_vars.join(" or ")
     );
+}
+
+/// The number of workers that read the input of a link.
+///
+/// Every worker that reads a part of the input of a link holds that part
+/// in memory, and the input of a link of Blink is measured in gigabytes.
+/// Chromium computes the number of the workers from the number of the
+/// cores — twenty-four of them on a machine of ninety-six cores — and the
+/// memory of the container has to bound it: two workers for a container of
+/// sixteen gigabytes.
+///
+/// The number does not depend on the plan: it is a property of the machine
+/// that builds, and it is asked for before the toolchain is there.
+pub fn linker_workers() -> usize {
+    match memory_limit_bytes() {
+        Some(bytes) => ((bytes / (8 * 1024 * 1024 * 1024)).max(1) as usize).min(2),
+        None => 2,
+    }
 }
 
 /// The memory the container allows, when it says.

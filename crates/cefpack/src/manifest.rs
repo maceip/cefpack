@@ -325,20 +325,21 @@ impl Manifest {
     ///
     /// The engine that is wanted is the layer of the content and Blink, and
     /// not the browser of the desktop: the flags that describe the browser
-    /// — the views, the PDF viewer, the plugins and the configuration of the
-    /// desktop on Android — are turned off, and everything else is the
-    /// arguments of the manifest.
+    /// — the PDF viewer, the plugins and the configuration of the desktop on
+    /// Android — are turned off, and everything else is the arguments of the
+    /// manifest.
+    ///
+    /// The flag of the views is **not** turned off.  Chromium asserts that
+    /// the views are built for Android, and the assertion is right: the
+    /// resources of the content need them.  What the measurement does not
+    /// build is the browser — the target is the layer of the content, and
+    /// the graph of that target has no `//chrome` in it.
     ///
     /// The measurement of the link uses these, so that the two builds — the
     /// engine and the measurement — agree on the configuration of Chromium
     /// that they share.
     pub fn gn_args_for_content(&self, debug: bool) -> Vec<String> {
-        let desktop: [&str; 4] = [
-            "is_desktop_android",
-            "toolkit_views",
-            "enable_pdf",
-            "enable_plugins",
-        ];
+        let desktop: [&str; 3] = ["is_desktop_android", "enable_pdf", "enable_plugins"];
         let mut args: Vec<String> = Vec::new();
         for argument in self.gn_args(debug) {
             let key = argument.split_once('=').map(|(k, _)| k).unwrap_or("");

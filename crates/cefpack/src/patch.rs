@@ -115,6 +115,21 @@ pub const CHROMIUM_ANDROID_PATCH: &str =
 pub const CHROMIUM_TOOLKIT_VIEWS_PATCH: &str =
     include_str!("../patches/chromium-android-toolkit-views.patch");
 
+/// The patch that bounds the workers of the linker by the memory of the
+/// machine.
+///
+/// Chromium computes the number of workers that read the input of a link
+/// as a quarter of the number of the cores, and a machine of ninety-six
+/// cores asks for twenty-four of them.  Every worker holds the part of the
+/// input that it reads in memory, and the input of a link of Blink is
+/// measured in gigabytes: a container of sixteen gigabytes cannot give
+/// twenty-four workers the input of the link.
+///
+/// The patch is made against the file of the pinned revision, and the
+/// service reads the file back after it has applied it.
+pub const CHROMIUM_LLD_WORKERS_PATCH: &str =
+    include_str!("../patches/chromium-android-lld-workers.patch");
+
 /// Apply a patch to a tree of sources.
 ///
 /// The step is idempotent: a tree that already carries the patch is left
@@ -417,6 +432,7 @@ mod tests {
             ("CEF", CEF_ANDROID_PATCH),
             ("Chromium", CHROMIUM_ANDROID_PATCH),
             ("the views", CHROMIUM_TOOLKIT_VIEWS_PATCH),
+            ("the workers of the linker", CHROMIUM_LLD_WORKERS_PATCH),
         ] {
             let hunks = hunk_lengths(patch);
             assert!(!hunks.is_empty(), "the patch of {name} has hunks");
