@@ -157,3 +157,45 @@ Chromium that Google builds for Android, not on the sources of CEF.
 The first is the honest reading of "build CEF for Android from the sources".
 The second is what a browser for Android can actually be.  The third is
 what the repository holds today.
+
+## The walk of the content alone
+
+The argument `cef_content_only` says that the build is the build of the
+content of Chromium and not the build of the engine of CEF.  It is declared
+in the configuration of the build — the file that every build imports — and
+it is off unless the build asks for it.
+
+With the argument on, the service applies three more patches, and the
+argument decides what they do:
+
+* the group `//chrome:dependencies` — the list of what the browser is made
+  of — is empty.  Chromium reads every target of the file that holds the
+  group, so the group brings the whole browser with it, and the browser
+  brings the user interface of the desktop with it;
+* the resources of the browser are asked for only when the argument is
+  off.  The file that holds them is the file of the browser, and Chromium
+  reads every target of a file that it reads;
+* the modal of the extensions and the widget of the browser of WebRTC are
+  not asked for.  Both are the window of the desktop, and both live in a
+  file that asserts that it is not built for Android.
+
+The tests of the tree are out of the build as well (`include_tests=false`):
+every test of Chromium pulls the browser with it.
+
+**The walk is not finished.**  The configuration of the build of the content
+alone still reaches the user interface of the desktop, and the path that it
+takes is not the one that was expected.  The method that finds the path is
+in the hands: empty the file that holds the desktop and the configuration
+names the dependent that wanted it.  The paths that have been found so far:
+
+| the path | the file that holds it |
+| --- | --- |
+| `//components/web_modal` | `//components/constrained_window/BUILD.gn` |
+| `//components/web_modal` | `//extensions/browser/BUILD.gn` (cut) |
+| `//chrome/browser/ui/views/frame` | `//chrome/browser/media/webrtc/BUILD.gn` (cut) |
+| `//chrome/browser/ui` | `//apps/BUILD.gn` (a test) |
+
+The link itself has **not** been measured.  The build has not reached the
+compiler: it stops in the configuration, and the number that the
+measurement was made for — the memory of the linker of the content and of
+Blink on a machine of sixteen gibibytes — is not yet a number.
