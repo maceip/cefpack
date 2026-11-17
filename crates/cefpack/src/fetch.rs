@@ -490,7 +490,7 @@ mod tests {
             ANDROID_PATCH.contains("+group(\"cef_android\")"),
             "the patch carries the root of the build"
         );
-        for target in ["":libcef\"", "":libcef_dll_wrapper\""] {
+        for target in [":libcef\"", ":libcef_dll_wrapper\""] {
             assert!(
                 ANDROID_PATCH.contains(target),
                 "the root of the build carries {target}"
