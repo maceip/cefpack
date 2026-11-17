@@ -61,6 +61,27 @@ pub fn build(plan: &Plan, debug: bool) -> Result<BuildOutput> {
     // exist before the build is configured.
     generate_translated_files(plan, &cef_dir)?;
 
+    // The tree of Chromium is checked out with `gclient sync --nohooks`,
+    // because the hook of CEF configures the build wrongly — it runs `gn
+    // gen` without a root, and the build that CEF makes is not the build
+    // that is wanted here.  The cost of skipping the hooks is that the
+    // files that the hooks write are not written either, and one of them
+    // is read while the build is **configured**:
+    //
+    //     ERROR at //build/timestamp.gni:43:19: Script returned non-zero
+    //     exit code.
+    //     FileNotFoundError: .../build/util/LASTCHANGE.committime
+    //
+    // The file is written by the hook `lastchange` of Chromium's DEPS:
+    //
+    //     'name': 'lastchange',
+    //     'action': ['python3', 'src/build/util/lastchange.py',
+    //                '-o', 'src/build/util/LASTCHANGE'],
+    //
+    // so that one hook is run here, by hand, and the verdict is the file
+    // that it leaves behind — not the exit code of the script.
+    write_the_last_change(plan)?;
+
     let args = build_args(plan, debug);
     log::info!("gn gen with {args}");
 
@@ -221,6 +242,62 @@ fn generate_translated_files(plan: &Plan, cef_dir: &Path) -> Result<()> {
         );
     }
     log::info!("the translated files of CEF are in {}", cef_dir.display());
+    Ok(())
+}
+
+/// Write `build/util/LASTCHANGE` and the time of the commit that it names.
+///
+/// The file is written by the hook `lastchange` of Chromium's DEPS, and the
+/// hooks are skipped: the hook of CEF configures the build wrongly.  The
+/// script is the same one, with the same arguments:
+///
+/// ```text
+/// python3 src/build/util/lastchange.py -o src/build/util/LASTCHANGE
+/// ```
+///
+/// It writes the file of the last change and, next to it, the time of the
+/// commit — and that time is read while the build is *configured*, by
+/// `build/compute_build_timestamp.py`, which reads it without asking whether
+/// it is there.
+///
+/// The verdict is the file: the script is run with the interpreter of the
+/// tree, and the file is read back.  A script that says it worked and
+/// leaves nothing behind has not worked.
+pub fn write_the_last_change(plan: &Plan) -> Result<()> {
+    let script = plan.chromium_dir().join("build/util/lastchange.py");
+    if !script.is_file() {
+        bail!(
+            "{} is not there; the checkout of Chromium is not complete",
+            script.display()
+        );
+    }
+    let output = Command::new("python3")
+        .current_dir(plan.chromium_dir())
+        .arg(&script)
+        .args(["-o", "build/util/LASTCHANGE"])
+        .output()
+        .with_context(|| format!("cannot run {}", script.display()))?;
+    if !output.status.success() {
+        bail!(
+            "the last change of Chromium could not be written: {}",
+            String::from_utf8_lossy(&output.stderr).trim()
+        );
+    }
+    let last_change = plan.chromium_dir().join("build/util/LASTCHANGE");
+    let time = plan.chromium_dir().join("build/util/LASTCHANGE.committime");
+    if !last_change.is_file() || !time.is_file() {
+        bail!(
+            "the last change of Chromium is not there: neither {} nor {} was written",
+            last_change.display(),
+            time.display()
+        );
+    }
+    log::info!(
+        "the last change of Chromium is {}",
+        std::fs::read_to_string(&last_change)
+            .unwrap_or_default()
+            .trim()
+    );
     Ok(())
 }
 
@@ -805,6 +882,45 @@ mod tests {
         assert!(
             !path.contains(&plan.chromium_dir().join("src").display().to_string()),
             "the path of the buildtools has no second src in it: {path}"
+        );
+    }
+
+    #[test]
+    fn the_last_change_is_written_and_read_back() {
+        // The build reads the time of the last change while it is
+        // *configured*, and the file is written by a hook of Chromium that
+        // the service skips.  The verdict is the file that is left behind.
+        let dir = tempfile::tempdir().expect("a temporary directory");
+        let plan = crate::plan::Plan::for_the_test(dir.path());
+        let script = plan.chromium_dir().join("build/util/lastchange.py");
+        std::fs::create_dir_all(script.parent().expect("a parent")).expect("a directory");
+        std::fs::write(
+            &script,
+            "import sys\n\
+             open(sys.argv[sys.argv.index('-o') + 1], 'w').write('LASTCHANGE=abc\\n')\n\
+             open(sys.argv[sys.argv.index('-o') + 1] + '.committime', 'w').write('1234')\n",
+        )
+        .expect("the script is written");
+        write_the_last_change(&plan).expect("the last change is written");
+        assert!(plan.chromium_dir().join("build/util/LASTCHANGE").is_file());
+        assert!(plan
+            .chromium_dir()
+            .join("build/util/LASTCHANGE.committime")
+            .is_file());
+    }
+
+    #[test]
+    fn the_last_change_that_is_not_written_is_an_error() {
+        // A script that says nothing and writes nothing has not worked.
+        let dir = tempfile::tempdir().expect("a temporary directory");
+        let plan = crate::plan::Plan::for_the_test(dir.path());
+        let script = plan.chromium_dir().join("build/util/lastchange.py");
+        std::fs::create_dir_all(script.parent().expect("a parent")).expect("a directory");
+        std::fs::write(&script, "pass\n").expect("the script is written");
+        let error = write_the_last_change(&plan).expect_err("the last change is missing");
+        assert!(
+            error.to_string().contains("is not there"),
+            "the error says what is missing: {error}"
         );
     }
 }

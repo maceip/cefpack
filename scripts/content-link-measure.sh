@@ -70,6 +70,18 @@ python3 "${ROOT}/scripts/cap-the-linker.py" "${SRC}" || true
 # --- 5. the configuration --------------------------------------------------
 echo "== 5. the configuration =="
 mkdir -p "${OUT}"
+
+# The tree of Chromium is checked out with `gclient sync --nohooks` — the
+# hook of CEF configures the build wrongly — and the files that the hooks
+# write are therefore not written either.  One of them is read while the
+# build is *configured*:
+#
+#   FileNotFoundError: .../build/util/LASTCHANGE.committime
+#
+# The service runs that one hook, by hand; this is the same call, so that
+# the measurement and the service agree on what the tree looks like.
+"${ROOT}/target/release/cefpack" lastchange
+
 cat > "${OUT}/args.gn" <<EOF
 target_os = "android"
 target_cpu = "arm64"

@@ -68,6 +68,18 @@ fn run(arguments: &[String]) -> Result<()> {
                 .unwrap_or_else(default_source_dir);
             command_abi(&cef_dir)
         }
+        "lastchange" => {
+            // The hook of Chromium that writes the time of the last change.
+            // The build is configured while the hooks are skipped, so this
+            // is the one hook that is run by hand.
+            let plan = plan()?;
+            build::write_the_last_change(&plan)?;
+            println!(
+                "the last change is in {}",
+                plan.chromium_dir().join("build/util/LASTCHANGE").display()
+            );
+            Ok(())
+        }
         "bindgen" => {
             let bundle = rest
                 .positional(0)
@@ -198,6 +210,18 @@ fn default_wrapper() -> PathBuf {
 /// The pinned manifest.
 fn manifest() -> Result<Manifest> {
     Manifest::read(&cefpack::manifest_path())
+}
+
+/// The plan, resolved from the pinned manifest, with the host checked.
+fn plan() -> Result<Plan> {
+    let plan = Plan::resolve(manifest()?)?;
+    if !plan.problems.is_empty() {
+        bail!(
+            "this machine cannot build the engine:\n  - {}",
+            plan.problems.join("\n  - ")
+        );
+    }
+    Ok(plan)
 }
 
 /// Resolve the plan and check the host.
