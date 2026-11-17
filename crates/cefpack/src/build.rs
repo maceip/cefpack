@@ -337,7 +337,16 @@ fn apply_patches(plan: &Plan, cef_dir: &Path) -> Result<()> {
 ///
 /// The step is idempotent, like every other patch of the service: a tree
 /// that already carries the patch is left alone.
-fn apply_chromium_patch(plan: &Plan) -> Result<()> {
+/// Apply the patches that the service carries for the tree of Chromium.
+///
+/// The patches are the ones that relax the assertions of Chromium that hold
+/// a desktop build, and the one that repairs the removal of a configuration
+/// that the component build of the desktop has and that Android does not.
+///
+/// The command is here so that a build that is not the build of the service
+/// — the measurement of the link, for one — uses the same tree as the
+/// service does.
+pub fn apply_chromium_patch(plan: &Plan) -> Result<()> {
     let chromium_dir = plan.chromium_dir();
     patch::apply_patch(&chromium_dir, patch::CHROMIUM_ANDROID_PATCH, "Chromium")?;
 

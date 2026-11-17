@@ -87,6 +87,15 @@ fn run(arguments: &[String]) -> Result<()> {
             }
             Ok(())
         }
+        "patch" => {
+            // The patches that the service carries for the tree of Chromium.
+            // A build that is not the build of the service — the
+            // measurement of the link — uses the same tree.
+            let plan = plan()?;
+            build::apply_chromium_patch(&plan)?;
+            println!("the patches of the service are applied");
+            Ok(())
+        }
         "lastchange" => {
             // The hook of Chromium that writes the time of the last change.
             // The build is configured while the hooks are skipped, so this

@@ -57,6 +57,13 @@ echo "== 3. the toolchain =="
 # --- 4. the target of the measurement ---------------------------------------
 echo "== 4. the target of the measurement =="
 cd "${SRC}"
+
+# The patches that the service carries for the tree of Chromium: the ones
+# that relax the assertions of Chromium that hold a desktop build.  The
+# measurement and the service have to build the same tree, and the patches
+# are part of it.
+"${ROOT}/target/release/cefpack" patch
+
 if ! git apply --check "${ROOT}/scripts/content-link-measure.patch" 2>/dev/null; then
   git apply "${ROOT}/scripts/content-link-measure.patch"
 fi
