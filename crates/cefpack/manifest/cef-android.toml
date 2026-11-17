@@ -119,7 +119,6 @@ args = [
   # both, and Chromium builds neither for Android.
   "enable_pdf=true",
   "enable_plugins=true",
-  "use_cef=true",
   "is_client=false",
   "is_server=false",
   "is_official_build=true",

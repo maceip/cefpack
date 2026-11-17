@@ -438,7 +438,7 @@ pub fn apply_chromium_patch(plan: &Plan) -> Result<()> {
     patch::verify(
         &chromium_dir,
         "ui/base/BUILD.gn",
-        &["if (use_cef) {", "\"//chrome:resources\""],
+        &["if (root != \"//\") {", "\"//chrome:resources\""],
     )?;
     Ok(())
 }
