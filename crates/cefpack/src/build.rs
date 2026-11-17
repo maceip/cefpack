@@ -427,6 +427,19 @@ pub fn apply_chromium_patch(plan: &Plan) -> Result<()> {
         "chrome/BUILD.gn",
         &["if (target_os != \"android\") {", "//chrome/browser/ui"],
     )?;
+
+    // The seventh patch of the service: the resources of the browser, which
+    // the content layer depends on, and which bring the browser with them.
+    patch::apply_patch(
+        &chromium_dir,
+        patch::CHROMIUM_CONTENT_ONLY_PATCH,
+        "content-only",
+    )?;
+    patch::verify(
+        &chromium_dir,
+        "ui/base/BUILD.gn",
+        &["if (use_cef) {", "\"//chrome:resources\""],
+    )?;
     Ok(())
 }
 

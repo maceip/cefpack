@@ -339,7 +339,12 @@ impl Manifest {
     /// engine and the measurement — agree on the configuration of Chromium
     /// that they share.
     pub fn gn_args_for_content(&self, debug: bool) -> Vec<String> {
-        let desktop: [&str; 3] = ["is_desktop_android", "enable_pdf", "enable_plugins"];
+        let desktop: [&str; 4] = [
+            "is_desktop_android",
+            "enable_pdf",
+            "enable_plugins",
+            "use_cef",
+        ];
         let mut args: Vec<String> = Vec::new();
         for argument in self.gn_args(debug) {
             let key = argument.split_once('=').map(|(k, _)| k).unwrap_or("");

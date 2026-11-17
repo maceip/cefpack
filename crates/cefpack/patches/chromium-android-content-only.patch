@@ -1,0 +1,48 @@
+diff --git a/ui/base/BUILD.gn b/ui/base/BUILD.gn
+--- a/ui/base/BUILD.gn
++++ b/ui/base/BUILD.gn
+@@ -1299,10 +1299,14 @@
+   }
+ 
+   if (is_android) {
+-    deps += [
+-      "//chrome:resources",
+-      "//ui/android:ui_java",
+-    ]
++    deps += [ "//ui/android:ui_java" ]
++    # The resources of the browser are the resources of the *browser*: a
++    # build of the content alone has no browser, and the file that holds
++    # them is the file of the browser — and Chromium reads every target of
++    # a file that it reads.
++    if (use_cef) {
++      deps += [ "//chrome:resources" ]
++    }
+   }
+ 
+   if (use_pangocairo) {
+diff --git a/extensions/renderer/BUILD.gn b/extensions/renderer/BUILD.gn
+--- a/extensions/renderer/BUILD.gn
++++ b/extensions/renderer/BUILD.gn
+@@ -256,7 +256,6 @@
+   deps = [
+     "//build:android_buildflags",
+     "//build:chromeos_buildflags",
+-    "//chrome:resources",
+     "//components/crx_file",
+     "//components/guest_view/buildflags",
+     "//components/url_formatter",
+@@ -281,6 +280,14 @@
+     "//ui/strings:auto_image_annotation_strings_grit",
+   ]
+ 
++  # The resources of the browser are the resources of the *browser*: a
++  # build of the content alone has no browser, and the file that holds
++  # them is the file of the browser — and Chromium reads every target of
++  # a file that it reads.
++  if (use_cef) {
++    deps += [ "//chrome:resources" ]
++  }
++
+   # TODO(https://crbug.com/356905053): The following files don't compile
+   # cleanly with the experimental desktop-android build. Either make them
+   # compile, or determine they should not be included and place them under a

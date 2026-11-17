@@ -186,6 +186,21 @@ pub const CHROMIUM_DESKTOP_UI_PATCH: &str =
 pub const CHROMIUM_DESKTOP_BROWSER_PATCH: &str =
     include_str!("../patches/chromium-android-desktop-browser.patch");
 
+/// The patch that lets the content be built without the browser.
+///
+/// The base of the user interface and the renderer of the extensions
+/// depend on the resources of the browser, and the resources are in the
+/// file of the browser — and Chromium reads every target of a file that it
+/// reads, so the whole browser comes with them, and the whole browser
+/// brings the user interface of the desktop, which Chromium has never
+/// built for Android.
+///
+/// The resources are the resources of the *browser*: a build of the
+/// content alone has no browser.  The patch asks for them only when the
+/// engine of CEF is being built, which is when there is a browser.
+pub const CHROMIUM_CONTENT_ONLY_PATCH: &str =
+    include_str!("../patches/chromium-android-content-only.patch");
+
 /// Apply a patch to a tree of sources.
 ///
 /// The step is idempotent: a tree that already carries the patch is left
@@ -598,6 +613,7 @@ mod tests {
             ("the target of the build", CHROMIUM_TARGET_OS_PATCH),
             ("the desktop browser", CHROMIUM_DESKTOP_UI_PATCH),
             ("the desktop browser, again", CHROMIUM_DESKTOP_BROWSER_PATCH),
+            ("the content alone", CHROMIUM_CONTENT_ONLY_PATCH),
         ] {
             let hunks = hunk_lengths(patch);
             assert!(!hunks.is_empty(), "the patch of {name} has hunks");
