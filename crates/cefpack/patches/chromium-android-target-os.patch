@@ -1,0 +1,25 @@
+diff --git a/BUILD.gn b/BUILD.gn
+--- a/BUILD.gn
++++ b/BUILD.gn
+@@ -877,8 +877,9 @@
+ 
+ # TODO(https://crbug.com/1112776): ensure remoting is functional on Linux builds with
+ # other than X11 Ozone backends.
+-if (enable_remoting && ((is_linux && ozone_platform_x11) ||
+-                        ((is_chromeos || is_win) && !use_ozone))) {
++if (enable_remoting && target_os != "android" &&
++    ((is_linux && ozone_platform_x11) ||
++     ((is_chromeos || is_win) && !use_ozone))) {
+   # On CQ, run the Traffic Annotation Auditor when a change affects one of these
+   # targets.
+   group("traffic_annotation_auditor_dependencies") {
+@@ -1596,7 +1597,8 @@
+   }
+ }
+ 
+-if (!is_ios && !is_android && !is_castos && !is_cronet_build) {
++if (target_os != "ios" && target_os != "android" && target_os != "castos" &&
++    !is_cronet_build) {
+   group("blackbox_fuzzing_targets") {
+     testonly = true
+     write_runtime_deps = "${root_out_dir}/${target_name}.runtime_deps"

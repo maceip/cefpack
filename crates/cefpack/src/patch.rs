@@ -130,6 +130,25 @@ pub const CHROMIUM_TOOLKIT_VIEWS_PATCH: &str =
 pub const CHROMIUM_LLD_WORKERS_PATCH: &str =
     include_str!("../patches/chromium-android-lld-workers.patch");
 
+/// The patch that asks for the target of the build where the conditions of
+/// Chromium mean the machine that builds.
+///
+/// The conditions of the root of the tree of Chromium — the ones that keep
+/// the desktop browser out of the build of Android — say `is_android` and
+/// `is_linux`, and those two name the *machine that builds* in the scope of
+/// a host tool.  A cross-compile to Android therefore keeps the groups
+/// that Chromium means to keep out, and the build stops with the desktop
+/// browser of Chromium in the graph:
+///
+/// ```text
+/// ERROR at //chrome/browser/ui/BUILD.gn:3531:5: Undefined identifier.
+/// ```
+///
+/// The target of the build is the same in every scope, and the patch asks
+/// for it where the conditions mean to ask for the platform of the target.
+pub const CHROMIUM_TARGET_OS_PATCH: &str =
+    include_str!("../patches/chromium-android-target-os.patch");
+
 /// Apply a patch to a tree of sources.
 ///
 /// The step is idempotent: a tree that already carries the patch is left
@@ -433,6 +452,7 @@ mod tests {
             ("Chromium", CHROMIUM_ANDROID_PATCH),
             ("the views", CHROMIUM_TOOLKIT_VIEWS_PATCH),
             ("the workers of the linker", CHROMIUM_LLD_WORKERS_PATCH),
+            ("the target of the build", CHROMIUM_TARGET_OS_PATCH),
         ] {
             let hunks = hunk_lengths(patch);
             assert!(!hunks.is_empty(), "the patch of {name} has hunks");

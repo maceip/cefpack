@@ -389,6 +389,16 @@ pub fn apply_chromium_patch(plan: &Plan) -> Result<()> {
         "build/toolchain/get_lld_read_workers.py",
         &["workers = min(workers, max(1, limit // (2 * 1024 * 1024 * 1024)))"],
     )?;
+
+    // The fourth patch of the service: the conditions of the root of the
+    // tree of Chromium, which name the machine that builds where they mean
+    // to name the platform of the target.
+    patch::apply_patch(&chromium_dir, patch::CHROMIUM_TARGET_OS_PATCH, "target-os")?;
+    patch::verify(
+        &chromium_dir,
+        "BUILD.gn",
+        &["if (enable_remoting && target_os != \"android\" &&"],
+    )?;
     Ok(())
 }
 
