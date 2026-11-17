@@ -1,5 +1,5 @@
 diff --git a/BUILD.gn b/BUILD.gn
-index 2018b0d..8c456a1 100644
+index 2018b0d..a77e19c 100644
 --- a/BUILD.gn
 +++ b/BUILD.gn
 @@ -252,10 +252,10 @@ if (is_linux) {
@@ -24,7 +24,7 @@ index 2018b0d..8c456a1 100644
  
  if (is_clang) {
    # Don't use the chrome style plugin.
-@@ -3065,3 +3065,12 @@ if (is_mac) {
+@@ -3065,3 +3065,19 @@ if (is_mac) {
      }
    }
  }

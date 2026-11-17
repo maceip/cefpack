@@ -1,8 +1,21 @@
 # Third party notices
 
 This repository contains the tooling that **builds** the Chromium Embedded
-Framework for Android.  It contains no code of CEF and no code of Chromium;
-it builds them from their own sources and it hands the result over.
+Framework for Android.  The tooling is its own code; the engine it produces
+is built from the sources of CEF and of Chromium, which are not part of it.
+
+Two files of those sources are kept here as **test fixtures**, under
+`crates/cefpack/tests/fixtures/`:
+
+| fixture | what it is | licence |
+|---|---|---|
+| `cef-BUILD.gn` | the `BUILD.gn` of CEF at the pinned commit | **LGPL-3.0-or-later** (the licence of CEF) |
+| `chromium-base-test-BUILD.gn` | the `base/test/BUILD.gn` of Chromium at the pinned commit | **BSD-style**, the licence of Chromium |
+
+They are there because the patches of this service are diffs against exactly
+those files, and a test that does not apply a patch to the file it was made
+against says nothing about the patch.  They are used by the tests only, and
+they are not part of any bundle.
 
 ## What a consumer receives
 

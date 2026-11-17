@@ -269,4 +269,110 @@ mod tests {
             "the patch names the tree it was made against: {CHROMIUM_ANDROID_PATCH}"
         );
     }
+
+    /// The number of lines a hunk of a patch says it has.
+    ///
+    /// A hunk header says how many lines the hunk has *before* the patch and
+    /// how many it has *after* it, and the body of the hunk is read exactly
+    /// that many lines long.  A header that says fewer lines than the body
+    /// has is not an error: git reads the header, takes the lines it names,
+    /// and **silently leaves the rest of the body out**.
+    ///
+    /// That is how the group that is the root of the build was lost: the
+    /// header said `+3065,12`, the body had sixteen added lines, and the
+    /// group — the last seven of them — was never applied.  The tree of CEF
+    /// then had the assertions relaxed and no group, and the configuration
+    /// of the build stopped with
+    ///
+    /// ```text
+    /// ERROR Root source path not found.
+    /// The path "//cef:cef_android" doesn't exist.
+    /// ```
+    ///
+    /// which says nothing about a patch with a wrong header.
+    fn hunk_lengths(patch: &str) -> Vec<(usize, usize, usize, usize)> {
+        let mut lengths = Vec::new();
+        let mut lines = patch.lines().peekable();
+        while let Some(line) = lines.next() {
+            let Some(header) = line.strip_prefix("@@ -") else {
+                continue;
+            };
+            let mut parts = header.split_whitespace();
+            let old = parts.next().unwrap_or_default();
+            let new = parts.next().unwrap_or_default();
+            let old_count = old
+                .split(',')
+                .nth(1)
+                .and_then(|n| n.parse::<usize>().ok())
+                .unwrap_or(1);
+            let new_count = new
+                .split(',')
+                .nth(1)
+                .and_then(|n| n.parse::<usize>().ok())
+                .unwrap_or(1);
+
+            let mut old_seen = 0;
+            let mut new_seen = 0;
+            while old_seen < old_count || new_seen < new_count {
+                let Some(body) = lines.next() else {
+                    break;
+                };
+                if body.starts_with('-') {
+                    old_seen += 1;
+                } else if body.starts_with('+') {
+                    new_seen += 1;
+                } else if body.starts_with(' ') || body.is_empty() {
+                    old_seen += 1;
+                    new_seen += 1;
+                } else {
+                    break;
+                }
+            }
+            lengths.push((old_count, new_count, old_seen, new_seen));
+        }
+        lengths
+    }
+
+    #[test]
+    fn the_hunks_of_the_patches_say_how_long_they_are() {
+        for (name, patch) in [
+            ("CEF", CEF_ANDROID_PATCH),
+            ("Chromium", CHROMIUM_ANDROID_PATCH),
+        ] {
+            let hunks = hunk_lengths(patch);
+            assert!(!hunks.is_empty(), "the patch of {name} has hunks");
+            for (old, new, old_seen, new_seen) in hunks {
+                assert_eq!(
+                    (old, new),
+                    (old_seen, new_seen),
+                    "a hunk of the patch of {name} says {old}/{new} lines and has {old_seen}/{new_seen}: \
+                     git would leave the rest of the hunk out"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn the_patch_of_cef_carries_the_whole_of_the_group() {
+        // The group is the last thing in the patch, and the lines that
+        // follow the header of its hunk are the ones that a wrong header
+        // would leave out.
+        let group = CEF_ANDROID_PATCH
+            .split("+group(\"cef_android\") {")
+            .nth(1)
+            .expect("the group is in the patch");
+        for line in [
+            "+  testonly = true",
+            "+  deps = [",
+            "+    \":libcef\",",
+            "+    \":libcef_dll_wrapper\",",
+            "+  ]",
+            "+}",
+        ] {
+            assert!(
+                group.contains(line),
+                "the group is complete: {line} is missing"
+            );
+        }
+    }
 }
