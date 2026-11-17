@@ -140,12 +140,17 @@ pub const CHROMIUM_TOOLKIT_VIEWS_PATCH: &str =
 ///
 /// `name` is the name of the patch, for the messages.
 pub fn apply_patch(tree: &Path, patch: &str, name: &str) -> Result<()> {
+    // The tree and the file are made absolute before they are used: the
+    // command runs *in* the tree and names the patch with a path, and a
+    // relative path is resolved against the directory the command runs in
+    // — so a relative tree makes the patch be looked for twice.
+    let tree = absolute(tree);
     let file = tree.join(format!(".cefpack-{name}.patch"));
     std::fs::write(&file, patch).with_context(|| format!("cannot write {}", file.display()))?;
 
     let git = |args: &[&str]| {
         Command::new("git")
-            .current_dir(tree)
+            .current_dir(&tree)
             .args(args)
             .arg(&file)
             .output()
@@ -172,6 +177,17 @@ pub fn apply_patch(tree: &Path, patch: &str, name: &str) -> Result<()> {
     Ok(())
 }
 
+/// A path, made absolute against the working directory.
+fn absolute(path: &Path) -> std::path::PathBuf {
+    if path.is_absolute() {
+        return path.to_path_buf();
+    }
+    match std::env::current_dir() {
+        Ok(directory) => directory.join(path),
+        Err(_) => path.to_path_buf(),
+    }
+}
+
 /// Read a file of a tree and check that it carries what a patch put in it.
 ///
 /// A patch that git accepted and that did not change the file is not a
@@ -194,6 +210,7 @@ pub fn verify(tree: &Path, file: &str, expected: &[&str]) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::PathBuf;
     use std::process::Command;
 
     /// A repository with one file in it.
@@ -255,6 +272,29 @@ mod tests {
             error.to_string().contains("does not fit"),
             "the error says what happened: {error}"
         );
+    }
+
+    #[test]
+    fn a_patch_is_applied_to_a_tree_named_relatively() {
+        // The command runs *in* the tree and names the patch with a path.
+        // A relative tree would make the patch be looked for twice — in
+        // `tree/tree/` — and the build would stop with a message about a
+        // file that nobody has ever heard of.
+        let repository = repository();
+        let previous = std::env::current_dir().expect("the working directory");
+        std::env::set_current_dir(repository.path().parent().expect("a parent"))
+            .expect("the working directory is set");
+        let tree = PathBuf::from(repository.path().file_name().expect("a name"));
+        let result = std::panic::catch_unwind(|| {
+            let patch =
+                "diff --git a/file b/file\n--- a/file\n+++ b/file\n@@ -1 +1 @@\n-before\n+after\n";
+            apply_patch(&tree, patch, "test")
+        });
+        std::env::set_current_dir(previous).expect("the working directory is restored");
+        let outcome = result.expect("the patch does not panic");
+        outcome.expect("the patch fits a tree that is named relatively");
+        let text = std::fs::read_to_string(repository.path().join("file")).expect("can read");
+        assert_eq!(text, "after\n");
     }
 
     #[test]

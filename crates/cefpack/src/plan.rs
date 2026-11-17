@@ -203,10 +203,24 @@ impl Plan {
 
         // The defaults are relative to the working directory: the service
         // carries no path of the machine it was written on.
+        //
+        // The paths are then made **absolute**, and that matters more than
+        // it looks: the service runs commands in the directory of a tree
+        // and names a file of that tree with a path that is relative to the
+        // directory the command runs in.  A relative path is resolved
+        // against the *new* working directory, so the file is looked for
+        // twice — in `cef-source/src/cef/cef-source/src/cef/` — and the
+        // command fails with a message about a file that nobody has ever
+        // heard of:
+        //
+        //     cefpack: the patch of CEF does not fit "cef-source/src/cef":
+        //     error: can't open patch 'cef-source/src/cef/.cefpack-CEF.patch':
+        //     No such file or directory
         let source_root =
-            env_path("CEF_SOURCE_ROOT").unwrap_or_else(|| PathBuf::from("cef-source"));
-        let out_dir = env_path("CEF_OUT_DIR").unwrap_or_else(|| PathBuf::from("cef-out"));
-        let bundle_dir = env_path("CEF_BUNDLE_DIR").unwrap_or_else(|| PathBuf::from("cef-bundle"));
+            absolute(env_path("CEF_SOURCE_ROOT").unwrap_or_else(|| PathBuf::from("cef-source")));
+        let out_dir = absolute(env_path("CEF_OUT_DIR").unwrap_or_else(|| PathBuf::from("cef-out")));
+        let bundle_dir =
+            absolute(env_path("CEF_BUNDLE_DIR").unwrap_or_else(|| PathBuf::from("cef-bundle")));
 
         let plan = Plan {
             manifest,
@@ -359,6 +373,21 @@ fn env_path(name: &str) -> Option<PathBuf> {
     std::env::var_os(name)
         .map(PathBuf::from)
         .filter(|p| !p.as_os_str().is_empty())
+}
+
+/// A path, made absolute against the working directory.
+///
+/// A path that is already absolute is left as it is.  A path that cannot be
+/// made absolute — because the working directory cannot be read — is left as
+/// it is too, and the command that uses it says so.
+fn absolute(path: PathBuf) -> PathBuf {
+    if path.is_absolute() {
+        return path;
+    }
+    match std::env::current_dir() {
+        Ok(directory) => directory.join(path),
+        Err(_) => path,
+    }
 }
 
 /// What a tool is: a directory that holds a toolchain, or an executable.

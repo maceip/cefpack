@@ -25,6 +25,14 @@ TOOLCHAIN="${CEF_TOOLCHAIN_DIR:-${HOME}/trap-toolchain}"
 OUT="${ROOT}/link-measure"
 SRC="${ROOT}/cef-source/src"
 
+# The paths of the service, absolute.  The service makes them absolute
+# itself, and this is the second half of the same promise: the scripts and
+# the service name the same directories.
+export CEF_SOURCE_ROOT="${ROOT}/cef-source"
+export CEF_OUT_DIR="${ROOT}/cef-out"
+export CEF_BUNDLE_DIR="${ROOT}/cef-bundle"
+export CEF_STAGING_DIR="${ROOT}/cef-staging"
+
 # --- 1. the service --------------------------------------------------------
 echo "== 1. the service =="
 # Only the compiler of the service is installed before the checkout of the
