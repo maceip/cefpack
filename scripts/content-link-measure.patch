@@ -1,0 +1,67 @@
+--- a/content/shell/BUILD.gn
++++ b/content/shell/BUILD.gn
+@@ -1105,6 +1105,33 @@
+   ]
+ }
+ 
++# The shared library of the engine, for the measurement of the link.
++#
++# The engine of the browser is a shared library that carries the layer of
++# the content of Chromium: the renderer, the browser side of the content,
++# and Blink.  The link of that library is the step that costs the most
++# memory of the whole build, and it is measured on its own before anything
++# is written on top of it.
++#
++# The target carries one object of its own and the layer of the content.
++# Nothing else: the browser of the application is rendered off screen, and
++# the shell of the desktop is not part of it.
++shared_library("content_link_measurement") {
++  testonly = true
++
++  sources = [ "content_link_measurement.cc" ]
++
++  deps = [
++    "//content/public/app",
++    "//content/public/browser",
++  ]
++
++  # The shared libraries of Android hide every symbol but the entry point
++  # of the JNI, and the C API of the engine has to be visible from outside
++  # of the library.
++  configs -= [ "//build/config/android:hide_all_but_jni_onload" ]
++}
++
+ if (is_android) {
+   group("content_shell_freeze_test") {
+     testonly = true
+diff --git a/content/shell/content_link_measurement.cc b/content/shell/content_link_measurement.cc
+new file mode 100644
+--- /dev/null
++++ b/content/shell/content_link_measurement.cc
+@@ -0,0 +1,26 @@
++// Copyright 2026 The Chromium Authors
++// Use of this source code is governed by a BSD-style license that can be
++// found in the LICENSE file.
++
++// The measurement of the link of the engine.
++//
++// The engine of the browser is a shared library that carries the layer of
++// the content of Chromium — the renderer, the browser side of the content,
++// and Blink.  The link of that library is the step that costs the most
++// memory of the whole build, and it is the step that has to be measured
++// before anything is written on top of it: a linker that needs fourteen
++// gigabytes in a container that allows sixteen, with the page cache of the
++// tree of the sources in the same sixteen, is a wall that is found at the
++// worst possible moment.
++//
++// This file carries nothing but a symbol, so that the library has one
++// object of its own.  Everything else comes from the dependencies.
++
++extern "C" {
++
++// The symbol that the library exports, and that the measurement looks for.
++__attribute__((visibility("default"))) int cef_content_link_measurement(void) {
++  return 1;
++}
++
++}  // extern "C"
