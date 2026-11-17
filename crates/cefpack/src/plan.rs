@@ -52,6 +52,44 @@ pub struct Plan {
 }
 
 impl Plan {
+    /// A plan for a test, with every tool somewhere that does not exist.
+    ///
+    /// The plan is only good for the questions that do not need a tool: the
+    /// paths of the plan, the arguments of the build, and the like.
+    pub fn for_the_test(source_root: &std::path::Path) -> Plan {
+        let manifest = Manifest::read(
+            &Path::new(env!("CARGO_MANIFEST_DIR")).join("manifest/cef-android.toml"),
+        )
+        .expect("the manifest of the crate is readable");
+        Plan {
+            manifest,
+            source_root: source_root.to_path_buf(),
+            out_dir: source_root.join("out"),
+            bundle_dir: source_root.join("bundle"),
+            ndk: Tool {
+                name: "ndk",
+                path: PathBuf::from("/nonexistent/ndk"),
+                version: None,
+            },
+            sdk: Tool {
+                name: "sdk",
+                path: PathBuf::from("/nonexistent/sdk"),
+                version: None,
+            },
+            depot_tools: Tool {
+                name: "depot_tools",
+                path: PathBuf::from("/nonexistent/depot_tools"),
+                version: None,
+            },
+            git: Tool {
+                name: "git",
+                path: PathBuf::from("/nonexistent/git"),
+                version: None,
+            },
+            problems: Vec::new(),
+        }
+    }
+
     /// The directory of the CEF checkout.
     ///
     /// The CEF layer sits inside the tree of Chromium, at `src/cef`: that

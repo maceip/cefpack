@@ -57,6 +57,10 @@ pub fn build(plan: &Plan, debug: bool) -> Result<BuildOutput> {
     // patch of the service corrects a line of that file for Android.
     apply_chromium_patch(plan)?;
 
+    // The files of CEF that the build reads are generated, and they have to
+    // exist before the build is configured.
+    generate_translated_files(plan, &cef_dir)?;
+
     let args = build_args(plan, debug);
     log::info!("gn gen with {args}");
 
@@ -157,6 +161,60 @@ fn gn_gen_arguments(out: &Path, root_target: &str, args: &str) -> Vec<String> {
         format!("--root-target={root_target}"),
         format!("--args={args}"),
     ]
+}
+
+/// Generate the files of CEF that the build reads.
+///
+/// CEF ships the headers of the C API and **generates** the rest: the
+/// `cef_paths.gypi` that tells the build which files belong to the engine,
+/// the wrappers of the C API, and the sources that go with them.  The
+/// translation is done by the tools of CEF, and the file that the build
+/// reads first is `cef_paths.gypi`:
+///
+/// ```text
+/// ERROR at //cef/BUILD.gn:295:14: Script returned non-zero exit code.
+/// gypi_paths = exec_script("//cef/tools/gypi_to_gn.py",
+///          ^----------
+/// [Errno 2] No such file or directory: '.../cef/cef_paths.gypi'
+/// ```
+///
+/// The command is the one that the hook of CEF runs when it checks the
+/// tree out, so the tree that this service configures is the tree that CEF
+/// itself would have built.
+///
+/// The exit code of the tool is not the verdict: the tool ends with a check
+/// of the API hashes, and the verdict of this function is the file that the
+/// build needs.
+fn generate_translated_files(plan: &Plan, cef_dir: &Path) -> Result<()> {
+    let tool = cef_dir.join("tools/version_manager.py");
+    if !tool.is_file() {
+        bail!(
+            "{} has no version manager; the checkout is not a CEF checkout",
+            cef_dir.display()
+        );
+    }
+    let output = Command::new("python3")
+        .current_dir(cef_dir)
+        .arg(&tool)
+        .args(["-u", "--fast-check"])
+        // The translator formats the files that CEF maintains by hand, and
+        // it needs the clang-format of the checkout of Chromium for that.
+        .env("PATH", path_with_depot_tools(plan))
+        .output()
+        .with_context(|| format!("cannot run {}", tool.display()))?;
+
+    // The result is read back, because a tool that says nothing and writes
+    // nothing is a tool that did not run.
+    let gypi = cef_dir.join("cef_paths.gypi");
+    if !gypi.is_file() {
+        bail!(
+            "the translation of CEF wrote no {}: {}",
+            gypi.display(),
+            String::from_utf8_lossy(&output.stderr).trim()
+        );
+    }
+    log::info!("the translated files of CEF are in {}", cef_dir.display());
+    Ok(())
 }
 
 /// Apply the patches of CEF to Chromium.
@@ -621,10 +679,13 @@ fn copy_tree(source: &Path, destination: &Path) -> Result<()> {
 fn path_with_depot_tools(plan: &Plan) -> String {
     let depot = plan.depot_tools.path.display().to_string();
     // The wrappers of depot_tools look for the real programs in the PATH;
-    // the checkout carries them in its buildtools.
+    // the checkout carries them in its buildtools.  The directory is the one
+    // that `Plan::build_tool` looks in: `chromium_dir()` is already the
+    // `src` directory of the tree of Chromium, and the buildtools are
+    // inside it.
     let buildtools = plan
         .chromium_dir()
-        .join("src/buildtools/linux64")
+        .join("buildtools/linux64")
         .display()
         .to_string();
     match std::env::var("PATH") {
@@ -701,5 +762,28 @@ mod tests {
         let arguments = gn_gen_arguments(Path::new("/build/out"), "//cef:cef_android", "");
         assert_eq!(arguments[0], "gen");
         assert_eq!(arguments[1], "/build/out");
+    }
+
+    #[test]
+    fn the_tools_of_the_checkout_are_on_the_path() {
+        // The translator of CEF formats the files that CEF maintains by
+        // hand, and it needs the clang-format of the checkout of Chromium
+        // for that.  The directory of the buildtools is the one that
+        // `Plan::build_tool` looks in, and `chromium_dir()` is already the
+        // `src` directory of the tree: a second `src` in the path is a
+        // directory that does not exist, and the translator is then without
+        // its clang-format.
+        let dir = tempfile::tempdir().expect("a temporary directory");
+        let plan = crate::plan::Plan::for_the_test(dir.path());
+        let path = path_with_depot_tools(&plan);
+        let buildtools = plan.chromium_dir().join("buildtools/linux64");
+        assert!(
+            path.contains(&buildtools.display().to_string()),
+            "the buildtools of the checkout are on the path: {path}"
+        );
+        assert!(
+            !path.contains(&plan.chromium_dir().join("src").display().to_string()),
+            "the path of the buildtools has no second src in it: {path}"
+        );
     }
 }
