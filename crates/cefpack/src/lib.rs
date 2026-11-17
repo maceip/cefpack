@@ -147,8 +147,54 @@ pub fn sha256_bytes(bytes: &[u8]) -> String {
 }
 
 /// The directory of this crate, which holds the pinned manifest.
+/// Where the manifest of the service is.
+///
+/// The path is found at run time and never at compile time: the service is
+/// built on one machine and runs on another, and it carries no path of the
+/// machine it was written on.
+///
+/// The places that are tried, in order:
+///
+///   1. `CEF_MANIFEST` — the variable that names it;
+///   2. `manifest/cef-android.toml` next to the binary;
+///   3. `crates/cefpack/manifest/cef-android.toml` under the working
+///      directory, which is the shape of the repository;
+///   4. the manifest of the crate, for the case where the service runs from
+///      its own directory.
 pub fn manifest_path() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("manifest/cef-android.toml")
+    if let Some(path) = std::env::var_os("CEF_MANIFEST") {
+        if !path.is_empty() {
+            return PathBuf::from(path);
+        }
+    }
+
+    let name = Path::new("manifest/cef-android.toml");
+
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(dir) = exe.parent() {
+            let next_to_the_binary = dir.join(name);
+            if next_to_the_binary.is_file() {
+                return next_to_the_binary;
+            }
+            // The binary of a workspace lives in `<target>/release`, and the
+            // manifest lives in the crate of the workspace.
+            if let Some(target) = dir.parent().and_then(|p| p.parent()) {
+                let in_the_workspace = target.join("crates/cefpack").join(name);
+                if in_the_workspace.is_file() {
+                    return in_the_workspace;
+                }
+            }
+        }
+    }
+
+    let in_the_working_directory = Path::new("crates/cefpack").join(name);
+    if in_the_working_directory.is_file() {
+        return in_the_working_directory;
+    }
+
+    // The last resort: the directory of the crate, which is where the
+    // manifest lives when the service is run from its own source tree.
+    Path::new(env!("CARGO_MANIFEST_DIR")).join(name)
 }
 
 #[cfg(test)]

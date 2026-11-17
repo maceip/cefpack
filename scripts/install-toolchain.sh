@@ -18,7 +18,24 @@
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-MANIFEST="${HERE}/../crates/cefpack/manifest/cef-android.toml"
+# The manifest names the versions that the toolchain must have.  It is found
+# through the environment, in the repository, or next to the script.
+MANIFEST="${CEF_MANIFEST:-}"
+if [ -z "${MANIFEST}" ]; then
+  for candidate in \
+    "${HERE}/../crates/cefpack/manifest/cef-android.toml" \
+    "${HERE}/manifest/cef-android.toml" \
+    "${HERE}/../../crates/cefpack/manifest/cef-android.toml"; do
+    if [ -f "${candidate}" ]; then
+      MANIFEST="${candidate}"
+      break
+    fi
+  done
+fi
+if [ -z "${MANIFEST}" ] || [ ! -f "${MANIFEST}" ]; then
+  echo "cannot find the manifest of the build: set CEF_MANIFEST" >&2
+  exit 1
+fi
 TOOLCHAIN="${1:-${TRAP_TOOLCHAIN:-/opt/trap-toolchain}}"
 
 read_manifest() {
