@@ -69,6 +69,20 @@ args = [
   "enable_plugin=false",
   "chrome_pgo_phase=0",
   "android_min_sdk_version=29",
+  # The flags that the BUILD.gn of CEF asserts.  Chromium turns them off for
+  # Android, and CEF requires them:
+  #
+  #     ERROR at //cef/BUILD.gn:255:1: Assertion failed.
+  #     assert(enable_print_preview)
+  #
+  #     assert(enable_widevine)
+  #     assert(toolkit_views)
+  #     assert(!clang_use_chrome_plugins)   # when is_clang
+  "enable_print_preview=true",
+  "enable_widevine=true",
+  "toolkit_views=true",
+  "clang_use_chrome_plugins=false",
+  "optimize_webui=true",
 ]
 # The arguments of a debug build, on top of the ones above.
 debug_args = [
