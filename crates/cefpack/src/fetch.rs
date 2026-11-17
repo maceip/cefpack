@@ -157,15 +157,25 @@ pub fn sync(plan: &Plan, tree: &SourceTree) -> Result<()> {
     // The command runs in the directory that holds the `.gclient` file: that
     // is where the solution is described, and the Chromium sources land in
     // the solution directory, next to the `DEPS` file of CEF.
+    // The flags are chosen for a container with a small memory ceiling:
+    //
+    //   * no `--reset`: the tree is already at the commit that the manifest
+    //     pins, and a reset rewrites the index of a tree of twenty-nine
+    //     gigabytes.  The measured cost of that rewrite was seventeen
+    //     gigabytes of memory, and the container allows sixteen.
+    //
+    //   * no `--with_branch_heads`: the branches of Chromium move, and the
+    //     build wants the commit, not the branch.
+    //
+    //   * `--shallow` and `--no-history`: the history of a tree that is
+    //     pinned by a commit is not needed for anything.
     let status = Command::new(&gclient)
         .current_dir(&tree.root)
         .args([
             "sync",
             "--no-history",
             "--shallow",
-            "--with_branch_heads",
             "--force",
-            "--reset",
         ])
         .env("DEPOT_TOOLS_UPDATE", "0")
         .env("PATH", path_with_depot_tools(plan))
