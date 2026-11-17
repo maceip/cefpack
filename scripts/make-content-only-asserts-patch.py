@@ -38,10 +38,18 @@ import os
 import pathlib
 import sys
 
-# The assertions that say that the file is a file of the desktop, and
-# what they say when the build is the build of the content alone.
-THE_DESKTOP = "assert(is_win || is_mac || is_linux || is_chromeos)"
-NOT_ANDROID = "assert(!is_android)"
+# The assertions that say that the file is a file of the desktop.
+#
+# The first says that the file is not read for Android, the second says
+# the same thing the other way round.  Both are right — the files *are*
+# the files of the desktop — and both stop the configuration of a build
+# of the content alone.
+#
+# The condition of an assertion is looked at, and not only these two
+# words: `assert(!is_android && !is_ios)` says the same thing as
+# `assert(!is_android)`, and the build of the content alone has to be
+# able to read the file as well.
+THE_DESKTOP = "is_win || is_mac || is_linux || is_chromeos"
 
 # The files that the other patches of the service touch.  Two patches
 # that touch one file cannot both be applied: when a patch does not fit,
@@ -73,6 +81,41 @@ SKIP = {
     "third_party/llvm-build",
     "third_party/rust-toolchain",
 }
+
+
+def relaxed(line: str) -> str:
+    """The line with its assertion relaxed for the build of the content.
+
+    An assertion that says that the file is a file of the desktop is
+    relaxed for the build of the content alone — and only for it.  The
+    condition of the assertion is looked at: an assertion that says
+    `!is_android` says the same thing as one that says
+    `is_win || is_mac || is_linux || is_chromeos`, in the other words.
+    """
+    start = line.find("assert(")
+    if start < 0:
+        return line
+    end = line.find(")", start)
+    if end < 0:
+        return line
+    condition = line[start + len("assert(") : end]
+    if "!is_android" in condition:
+        return (
+            line[:start]
+            + "assert(("
+            + condition
+            + ") || cef_content_only)"
+            + line[end + 1 :]
+        )
+    if THE_DESKTOP in condition:
+        return (
+            line[:start]
+            + "assert("
+            + condition
+            + " || cef_content_only)"
+            + line[end + 1 :]
+        )
+    return line
 
 
 def the_files(root: pathlib.Path):
@@ -115,7 +158,7 @@ def main() -> int:
             # patch them, and neither does this script.
             skipped += 1
             continue
-        if THE_DESKTOP not in source and NOT_ANDROID not in source:
+        if "assert(" not in source:
             continue
         name = str(path.relative_to(root))
         if name in ALREADY_PATCHED:
@@ -123,17 +166,7 @@ def main() -> int:
         lines = source.split("\n")
         changed = []
         for line in lines:
-            if THE_DESKTOP in line:
-                line = line.replace(
-                    THE_DESKTOP,
-                    "assert(is_win || is_mac || is_linux || is_chromeos || "
-                    "cef_content_only)",
-                )
-            elif NOT_ANDROID in line:
-                line = line.replace(
-                    NOT_ANDROID, "assert(!is_android || cef_content_only)"
-                )
-            changed.append(line)
+            changed.append(relaxed(line))
         if changed == lines:
             continue
         name = str(path.relative_to(root))

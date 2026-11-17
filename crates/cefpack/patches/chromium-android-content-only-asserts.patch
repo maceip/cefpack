@@ -1,3 +1,15 @@
+diff --git a/extensions/browser/mime_handler/BUILD.gn b/extensions/browser/mime_handler/BUILD.gn
+--- a/extensions/browser/mime_handler/BUILD.gn
++++ b/extensions/browser/mime_handler/BUILD.gn
+@@ -4,7 +4,7 @@
+ 
+ import("//extensions/buildflags/buildflags.gni")
+ 
+-assert(enable_extensions && !is_android)
++assert((enable_extensions && !is_android) || cef_content_only)
+ 
+ source_set("mime_handler") {
+   sources = [
 diff --git a/chrome/test/permissions/BUILD.gn b/chrome/test/permissions/BUILD.gn
 --- a/chrome/test/permissions/BUILD.gn
 +++ b/chrome/test/permissions/BUILD.gn
@@ -6,10 +18,118 @@ diff --git a/chrome/test/permissions/BUILD.gn b/chrome/test/permissions/BUILD.gn
  # found in the LICENSE file.
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  source_set("permissions") {
    testonly = true
+diff --git a/chrome/test/data/webui/cr_components/BUILD.gn b/chrome/test/data/webui/cr_components/BUILD.gn
+--- a/chrome/test/data/webui/cr_components/BUILD.gn
++++ b/chrome/test/data/webui/cr_components/BUILD.gn
+@@ -4,7 +4,7 @@
+ 
+ import("../build_webui_tests.gni")
+ 
+-assert((!is_android && !is_ios) || is_desktop_android)
++assert(((!is_android && !is_ios) || cef_content_only) || is_desktop_android)
+ 
+ build_webui_tests("build") {
+   cc_test_files = [
+diff --git a/chrome/test/data/webui/cr_components/cr_shortcut_input/BUILD.gn b/chrome/test/data/webui/cr_components/cr_shortcut_input/BUILD.gn
+--- a/chrome/test/data/webui/cr_components/cr_shortcut_input/BUILD.gn
++++ b/chrome/test/data/webui/cr_components/cr_shortcut_input/BUILD.gn
+@@ -4,7 +4,7 @@
+ 
+ import("//chrome/test/data/webui/build_webui_tests.gni")
+ 
+-assert(!is_android && !is_ios)
++assert((!is_android && !is_ios) || cef_content_only)
+ 
+ build_webui_tests("build") {
+   cc_test_files = [
+diff --git a/chrome/test/data/webui/cr_components/searchbox/BUILD.gn b/chrome/test/data/webui/cr_components/searchbox/BUILD.gn
+--- a/chrome/test/data/webui/cr_components/searchbox/BUILD.gn
++++ b/chrome/test/data/webui/cr_components/searchbox/BUILD.gn
+@@ -5,7 +5,7 @@
+ import("//chrome/test/data/webui/build_webui_tests.gni")
+ 
+ # TODO(crbug.com/513275771): Enable for Android.
+-assert(!is_android || is_desktop_android)
++assert((!is_android || is_desktop_android) || cef_content_only)
+ assert(!is_ios)
+ 
+ build_webui_tests("build") {
+diff --git a/chrome/test/data/webui/cr_components/history_embeddings/BUILD.gn b/chrome/test/data/webui/cr_components/history_embeddings/BUILD.gn
+--- a/chrome/test/data/webui/cr_components/history_embeddings/BUILD.gn
++++ b/chrome/test/data/webui/cr_components/history_embeddings/BUILD.gn
+@@ -4,7 +4,7 @@
+ 
+ import("//chrome/test/data/webui/build_webui_tests.gni")
+ 
+-assert(!is_android && !is_ios)
++assert((!is_android && !is_ios) || cef_content_only)
+ 
+ build_webui_tests("build") {
+   cc_test_files = [
+diff --git a/chrome/test/data/webui/cr_components/theme_color_picker/BUILD.gn b/chrome/test/data/webui/cr_components/theme_color_picker/BUILD.gn
+--- a/chrome/test/data/webui/cr_components/theme_color_picker/BUILD.gn
++++ b/chrome/test/data/webui/cr_components/theme_color_picker/BUILD.gn
+@@ -4,7 +4,7 @@
+ 
+ import("//chrome/test/data/webui/build_webui_tests.gni")
+ 
+-assert(!is_android && !is_ios)
++assert((!is_android && !is_ios) || cef_content_only)
+ 
+ build_webui_tests("build") {
+   cc_test_files = [
+diff --git a/chrome/test/data/webui/cr_components/history_clusters/BUILD.gn b/chrome/test/data/webui/cr_components/history_clusters/BUILD.gn
+--- a/chrome/test/data/webui/cr_components/history_clusters/BUILD.gn
++++ b/chrome/test/data/webui/cr_components/history_clusters/BUILD.gn
+@@ -4,7 +4,7 @@
+ 
+ import("//chrome/test/data/webui/build_webui_tests.gni")
+ 
+-assert(!is_android && !is_ios)
++assert((!is_android && !is_ios) || cef_content_only)
+ 
+ build_webui_tests("build") {
+   cc_test_files = [
+diff --git a/chrome/test/data/webui/cr_components/composebox/BUILD.gn b/chrome/test/data/webui/cr_components/composebox/BUILD.gn
+--- a/chrome/test/data/webui/cr_components/composebox/BUILD.gn
++++ b/chrome/test/data/webui/cr_components/composebox/BUILD.gn
+@@ -5,7 +5,7 @@
+ import("//chrome/test/data/webui/build_webui_tests.gni")
+ import("//ui/webui/webui_features.gni")
+ 
+-assert((!is_android && !is_ios) || enable_webui_contextual_tasks_composebox)
++assert(((!is_android && !is_ios) || cef_content_only) || enable_webui_contextual_tasks_composebox)
+ 
+ build_webui_tests("build") {
+   cc_test_files = [
+diff --git a/chrome/test/data/webui/cr_components/cr_lottie/BUILD.gn b/chrome/test/data/webui/cr_components/cr_lottie/BUILD.gn
+--- a/chrome/test/data/webui/cr_components/cr_lottie/BUILD.gn
++++ b/chrome/test/data/webui/cr_components/cr_lottie/BUILD.gn
+@@ -4,7 +4,7 @@
+ 
+ import("//chrome/test/data/webui/build_webui_tests.gni")
+ 
+-assert(!is_android && !is_ios)
++assert((!is_android && !is_ios) || cef_content_only)
+ 
+ build_webui_tests("build") {
+   cc_test_files = [ "../cr_components_browsertest.cc" ]
+diff --git a/chrome/test/data/webui/cr_components/help_bubble/BUILD.gn b/chrome/test/data/webui/cr_components/help_bubble/BUILD.gn
+--- a/chrome/test/data/webui/cr_components/help_bubble/BUILD.gn
++++ b/chrome/test/data/webui/cr_components/help_bubble/BUILD.gn
+@@ -5,7 +5,7 @@
+ import("//chrome/test/data/webui/build_webui_tests.gni")
+ import("//mojo/public/tools/bindings/mojom.gni")
+ 
+-assert(!is_android && !is_ios)
++assert((!is_android && !is_ios) || cef_content_only)
+ 
+ build_webui_tests("build") {
+   static_files = [ "test_custom_help_bubble.html" ]
 diff --git a/chrome/test/data/webui/device_log/BUILD.gn b/chrome/test/data/webui/device_log/BUILD.gn
 --- a/chrome/test/data/webui/device_log/BUILD.gn
 +++ b/chrome/test/data/webui/device_log/BUILD.gn
@@ -18,7 +138,7 @@ diff --git a/chrome/test/data/webui/device_log/BUILD.gn b/chrome/test/data/webui
  import("../build_webui_tests.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  build_webui_tests("build") {
    cc_test_files = [ "device_log_ui_browsertest.cc" ]
@@ -30,7 +150,7 @@ diff --git a/chrome/test/data/webui/whats_new/BUILD.gn b/chrome/test/data/webui/
  import("../build_webui_tests.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  build_webui_tests("build") {
    cc_test_files = [ "whats_new_browsertest.cc" ]
@@ -42,7 +162,7 @@ diff --git a/chrome/test/data/webui/tab_group_home/BUILD.gn b/chrome/test/data/w
  import("../build_webui_tests.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  build_webui_tests("build") {
    cc_test_files = [ "tab_group_home_browsertest.cc" ]
@@ -54,7 +174,7 @@ diff --git a/chrome/test/data/webui/webnn_internals/BUILD.gn b/chrome/test/data/
  import("../build_webui_tests.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  build_webui_tests("build") {
    cc_test_files = [ "webnn_internals_browsertest.cc" ]
@@ -66,7 +186,7 @@ diff --git a/chrome/test/data/webui/multistep_filter_internals/BUILD.gn b/chrome
  import("../build_webui_tests.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  build_webui_tests("build") {
    cc_test_files = [ "multistep_filter_internals_browsertest.cc" ]
@@ -78,7 +198,7 @@ diff --git a/chrome/test/data/webui/support_tool/BUILD.gn b/chrome/test/data/web
  import("../build_webui_tests.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  build_webui_tests("build") {
    cc_test_files = [ "support_tool_focus_interactive_uitest.cc" ]
@@ -90,7 +210,7 @@ diff --git a/chrome/test/data/webui/iwa_dev/BUILD.gn b/chrome/test/data/webui/iw
  import("../build_webui_tests.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  build_webui_tests("build") {
    cc_test_files = [ "iwa_dev_browsertest.cc" ]
@@ -102,7 +222,7 @@ diff --git a/chrome/test/data/webui/discards/BUILD.gn b/chrome/test/data/webui/d
  import("../build_webui_tests.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  build_webui_tests("build") {
    cc_test_files = [ "discards_browsertest.cc" ]
@@ -114,10 +234,22 @@ diff --git a/chrome/test/data/webui/feedback/BUILD.gn b/chrome/test/data/webui/f
  import("../build_webui_tests.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  build_webui_tests("build") {
    cc_test_files = [ "feedback_browsertest.cc" ]
+diff --git a/chrome/test/data/webui/omnibox_popup/BUILD.gn b/chrome/test/data/webui/omnibox_popup/BUILD.gn
+--- a/chrome/test/data/webui/omnibox_popup/BUILD.gn
++++ b/chrome/test/data/webui/omnibox_popup/BUILD.gn
+@@ -4,7 +4,7 @@
+ 
+ import("../build_webui_tests.gni")
+ 
+-assert(!is_android && !is_ios)
++assert((!is_android && !is_ios) || cef_content_only)
+ 
+ build_webui_tests("build") {
+   cc_test_files = [ "omnibox_popup_browsertest.cc" ]
 diff --git a/chrome/test/data/webui/side_panel/read_anything/BUILD.gn b/chrome/test/data/webui/side_panel/read_anything/BUILD.gn
 --- a/chrome/test/data/webui/side_panel/read_anything/BUILD.gn
 +++ b/chrome/test/data/webui/side_panel/read_anything/BUILD.gn
@@ -126,10 +258,22 @@ diff --git a/chrome/test/data/webui/side_panel/read_anything/BUILD.gn b/chrome/t
  import("../../build_webui_tests.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  build_webui_tests("build") {
    cc_test_files = [ "read_anything_browsertest.cc" ]
+diff --git a/chrome/test/data/webui/omnibox_everywhere/BUILD.gn b/chrome/test/data/webui/omnibox_everywhere/BUILD.gn
+--- a/chrome/test/data/webui/omnibox_everywhere/BUILD.gn
++++ b/chrome/test/data/webui/omnibox_everywhere/BUILD.gn
+@@ -4,7 +4,7 @@
+ 
+ import("../build_webui_tests.gni")
+ 
+-assert(!is_android && !is_ios)
++assert((!is_android && !is_ios) || cef_content_only)
+ 
+ build_webui_tests("build") {
+   cc_test_files = [ "omnibox_everywhere_browsertest.cc" ]
 diff --git a/chrome/test/data/webui/password_manager/BUILD.gn b/chrome/test/data/webui/password_manager/BUILD.gn
 --- a/chrome/test/data/webui/password_manager/BUILD.gn
 +++ b/chrome/test/data/webui/password_manager/BUILD.gn
@@ -138,7 +282,7 @@ diff --git a/chrome/test/data/webui/password_manager/BUILD.gn b/chrome/test/data
  import("../build_webui_tests.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  build_webui_tests("build") {
    cc_test_files = [
@@ -150,7 +294,7 @@ diff --git a/chrome/test/data/webui/media_router/BUILD.gn b/chrome/test/data/web
  import("../build_webui_tests.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  assert(is_chrome_branded)
  
  build_webui_tests("build") {
@@ -162,7 +306,7 @@ diff --git a/chrome/test/data/webui/chrome_apis/BUILD.gn b/chrome/test/data/webu
  import("../build_webui_tests.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  build_webui_tests("build") {
    cc_test_files = [
@@ -174,7 +318,7 @@ diff --git a/chrome/test/v8/BUILD.gn b/chrome/test/v8/BUILD.gn
  # found in the LICENSE file.
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  source_set("browser_tests") {
    testonly = true
@@ -186,7 +330,7 @@ diff --git a/chrome/test/user_education/BUILD.gn b/chrome/test/user_education/BU
  # found in the LICENSE file.
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  source_set("user_education") {
    testonly = true
@@ -198,7 +342,7 @@ diff --git a/chrome/test/gpu/BUILD.gn b/chrome/test/gpu/BUILD.gn
  # found in the LICENSE file.
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  source_set("browser_tests") {
    testonly = true
@@ -210,7 +354,7 @@ diff --git a/chrome/services/speech/soda/BUILD.gn b/chrome/services/speech/soda/
  import("//third_party/protobuf/proto_library.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  proto_library("soda_api_proto") {
    sources = [ "proto/soda_api.proto" ]
@@ -234,7 +378,7 @@ diff --git a/chrome/browser/indigo/BUILD.gn b/chrome/browser/indigo/BUILD.gn
  # found in the LICENSE file.
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  import("//third_party/protobuf/proto_library.gni")
  
@@ -246,7 +390,7 @@ diff --git a/chrome/browser/indigo/resources/BUILD.gn b/chrome/browser/indigo/re
  import("//tools/grit/grit_rule.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  declare_args() {
    # Set to true to use internal branded strings for Indigo.
@@ -258,9 +402,33 @@ diff --git a/chrome/browser/glic/selection/BUILD.gn b/chrome/browser/glic/select
  import("//mojo/public/tools/bindings/mojom.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  source_set("selection") {
+   sources = [
+diff --git a/chrome/browser/regional_capabilities/BUILD.gn b/chrome/browser/regional_capabilities/BUILD.gn
+--- a/chrome/browser/regional_capabilities/BUILD.gn
++++ b/chrome/browser/regional_capabilities/BUILD.gn
+@@ -4,7 +4,7 @@
+ 
+ import("//build/config/chrome_build.gni")
+ 
+-assert(is_win || is_mac || is_linux || is_chromeos || is_android)
++assert(is_win || is_mac || is_linux || is_chromeos || is_android || cef_content_only)
+ 
+ source_set("regional_capabilities") {
+   sources = [
+diff --git a/chrome/browser/content_settings/BUILD.gn b/chrome/browser/content_settings/BUILD.gn
+--- a/chrome/browser/content_settings/BUILD.gn
++++ b/chrome/browser/content_settings/BUILD.gn
+@@ -7,7 +7,7 @@
+ import("//extensions/buildflags/buildflags.gni")
+ import("//pdf/features.gni")
+ 
+-assert(is_win || is_mac || is_linux || is_chromeos || is_android)
++assert(is_win || is_mac || is_linux || is_chromeos || is_android || cef_content_only)
+ 
+ source_set("content_settings") {
    sources = [
 diff --git a/chrome/browser/extensions/api/indigo_private/BUILD.gn b/chrome/browser/extensions/api/indigo_private/BUILD.gn
 --- a/chrome/browser/extensions/api/indigo_private/BUILD.gn
@@ -270,7 +438,7 @@ diff --git a/chrome/browser/extensions/api/indigo_private/BUILD.gn b/chrome/brow
  import("//extensions/buildflags/buildflags.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  source_set("indigo_private") {
    sources = [
@@ -282,10 +450,22 @@ diff --git a/chrome/browser/extensions/api/contextual_tasks_private/BUILD.gn b/c
  import("//extensions/buildflags/buildflags.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  source_set("contextual_tasks_private") {
    sources = [
+diff --git a/chrome/browser/search_engine_choice/BUILD.gn b/chrome/browser/search_engine_choice/BUILD.gn
+--- a/chrome/browser/search_engine_choice/BUILD.gn
++++ b/chrome/browser/search_engine_choice/BUILD.gn
+@@ -5,7 +5,7 @@
+ import("//build/config/chrome_build.gni")
+ import("//build/config/chromeos/args.gni")
+ 
+-assert(is_win || is_mac || is_linux || is_chromeos || is_android)
++assert(is_win || is_mac || is_linux || is_chromeos || is_android || cef_content_only)
+ 
+ source_set("search_engine_choice") {
+   sources = [ "search_engine_choice_service_factory.h" ]
 diff --git a/chrome/browser/badging/BUILD.gn b/chrome/browser/badging/BUILD.gn
 --- a/chrome/browser/badging/BUILD.gn
 +++ b/chrome/browser/badging/BUILD.gn
@@ -294,9 +474,33 @@ diff --git a/chrome/browser/badging/BUILD.gn b/chrome/browser/badging/BUILD.gn
  # found in the LICENSE file.
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  source_set("badging") {
+   sources = [
+diff --git a/chrome/browser/chooser_controller/BUILD.gn b/chrome/browser/chooser_controller/BUILD.gn
+--- a/chrome/browser/chooser_controller/BUILD.gn
++++ b/chrome/browser/chooser_controller/BUILD.gn
+@@ -4,7 +4,7 @@
+ 
+ import("//extensions/buildflags/buildflags.gni")
+ 
+-assert(is_win || is_mac || is_linux || is_chromeos || is_android)
++assert(is_win || is_mac || is_linux || is_chromeos || is_android || cef_content_only)
+ 
+ source_set("chooser_controller") {
+   sources = [
+diff --git a/chrome/browser/ui/signin/BUILD.gn b/chrome/browser/ui/signin/BUILD.gn
+--- a/chrome/browser/ui/signin/BUILD.gn
++++ b/chrome/browser/ui/signin/BUILD.gn
+@@ -7,7 +7,7 @@
+ import("//components/signin/features.gni")
+ import("//extensions/buildflags/buildflags.gni")
+ 
+-assert(!is_android && !is_fuchsia)
++assert((!is_android && !is_fuchsia) || cef_content_only)
+ 
+ source_set("signin") {
    sources = [
 diff --git a/chrome/browser/ui/sessions/BUILD.gn b/chrome/browser/ui/sessions/BUILD.gn
 --- a/chrome/browser/ui/sessions/BUILD.gn
@@ -306,10 +510,22 @@ diff --git a/chrome/browser/ui/sessions/BUILD.gn b/chrome/browser/ui/sessions/BU
  # found in the LICENSE file.
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  import("//build/config/ozone.gni")
  
+diff --git a/chrome/browser/ui/blocked_content/BUILD.gn b/chrome/browser/ui/blocked_content/BUILD.gn
+--- a/chrome/browser/ui/blocked_content/BUILD.gn
++++ b/chrome/browser/ui/blocked_content/BUILD.gn
+@@ -6,7 +6,7 @@
+ import("//build/config/ozone.gni")
+ import("//extensions/buildflags/buildflags.gni")
+ 
+-assert(is_win || is_mac || is_linux || is_chromeos || is_android)
++assert(is_win || is_mac || is_linux || is_chromeos || is_android || cef_content_only)
+ 
+ source_set("blocked_content") {
+   sources = [
 diff --git a/chrome/browser/ui/content_settings/BUILD.gn b/chrome/browser/ui/content_settings/BUILD.gn
 --- a/chrome/browser/ui/content_settings/BUILD.gn
 +++ b/chrome/browser/ui/content_settings/BUILD.gn
@@ -322,6 +538,18 @@ diff --git a/chrome/browser/ui/content_settings/BUILD.gn b/chrome/browser/ui/con
  
  source_set("content_settings") {
    sources = []
+diff --git a/chrome/browser/ui/hats/BUILD.gn b/chrome/browser/ui/hats/BUILD.gn
+--- a/chrome/browser/ui/hats/BUILD.gn
++++ b/chrome/browser/ui/hats/BUILD.gn
+@@ -8,7 +8,7 @@
+   import("//build/config/android/rules.gni")
+ }
+ 
+-assert(is_win || is_mac || is_linux || is_chromeos || is_android)
++assert(is_win || is_mac || is_linux || is_chromeos || is_android || cef_content_only)
+ 
+ source_set("hats") {
+   sources = [
 diff --git a/chrome/browser/ui/focus/BUILD.gn b/chrome/browser/ui/focus/BUILD.gn
 --- a/chrome/browser/ui/focus/BUILD.gn
 +++ b/chrome/browser/ui/focus/BUILD.gn
@@ -330,10 +558,22 @@ diff --git a/chrome/browser/ui/focus/BUILD.gn b/chrome/browser/ui/focus/BUILD.gn
  import("//build/config/ui.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  source_set("focus") {
    public = [
+diff --git a/chrome/browser/ui/cookie_controls/BUILD.gn b/chrome/browser/ui/cookie_controls/BUILD.gn
+--- a/chrome/browser/ui/cookie_controls/BUILD.gn
++++ b/chrome/browser/ui/cookie_controls/BUILD.gn
+@@ -2,7 +2,7 @@
+ # Use of this source code is governed by a BSD-style license that can be
+ # found in the LICENSE file.
+ 
+-assert(is_win || is_mac || is_linux || is_chromeos || is_android)
++assert(is_win || is_mac || is_linux || is_chromeos || is_android || cef_content_only)
+ 
+ source_set("unit_tests") {
+   testonly = true
 diff --git a/chrome/browser/ui/global_media_controls/BUILD.gn b/chrome/browser/ui/global_media_controls/BUILD.gn
 --- a/chrome/browser/ui/global_media_controls/BUILD.gn
 +++ b/chrome/browser/ui/global_media_controls/BUILD.gn
@@ -354,7 +594,7 @@ diff --git a/chrome/browser/ui/browser_ui_controller/BUILD.gn b/chrome/browser/u
  # found in the LICENSE file.
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  source_set("browser_ui_controller") {
    sources = [ "browser_ui_controller.h" ]
@@ -366,10 +606,22 @@ diff --git a/chrome/browser/ui/location_bar/BUILD.gn b/chrome/browser/ui/locatio
  # found in the LICENSE file.
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  source_set("location_bar") {
    public = [
+diff --git a/chrome/browser/ui/interventions/BUILD.gn b/chrome/browser/ui/interventions/BUILD.gn
+--- a/chrome/browser/ui/interventions/BUILD.gn
++++ b/chrome/browser/ui/interventions/BUILD.gn
+@@ -2,7 +2,7 @@
+ # Use of this source code is governed by a BSD-style license that can be
+ # found in the LICENSE file.
+ 
+-assert(is_win || is_mac || is_linux || is_chromeos || is_android)
++assert(is_win || is_mac || is_linux || is_chromeos || is_android || cef_content_only)
+ 
+ source_set("interventions") {
+   sources = [
 diff --git a/chrome/browser/ui/qrcode_generator/BUILD.gn b/chrome/browser/ui/qrcode_generator/BUILD.gn
 --- a/chrome/browser/ui/qrcode_generator/BUILD.gn
 +++ b/chrome/browser/ui/qrcode_generator/BUILD.gn
@@ -382,6 +634,18 @@ diff --git a/chrome/browser/ui/qrcode_generator/BUILD.gn b/chrome/browser/ui/qrc
  assert(toolkit_views)
  
  source_set("qrcode_generator") {
+diff --git a/chrome/browser/ui/contextual_search/BUILD.gn b/chrome/browser/ui/contextual_search/BUILD.gn
+--- a/chrome/browser/ui/contextual_search/BUILD.gn
++++ b/chrome/browser/ui/contextual_search/BUILD.gn
+@@ -4,7 +4,7 @@
+ 
+ import("//pdf/features.gni")
+ 
+-assert(is_win || is_mac || is_linux || is_chromeos || is_android)
++assert(is_win || is_mac || is_linux || is_chromeos || is_android || cef_content_only)
+ 
+ source_set("contextual_search") {
+   sources = [
 diff --git a/chrome/browser/ui/toasts/BUILD.gn b/chrome/browser/ui/toasts/BUILD.gn
 --- a/chrome/browser/ui/toasts/BUILD.gn
 +++ b/chrome/browser/ui/toasts/BUILD.gn
@@ -394,6 +658,18 @@ diff --git a/chrome/browser/ui/toasts/BUILD.gn b/chrome/browser/ui/toasts/BUILD.
  
  import("//build/config/chrome_build.gni")
  import("//build/config/ui.gni")
+diff --git a/chrome/browser/ui/zoom/BUILD.gn b/chrome/browser/ui/zoom/BUILD.gn
+--- a/chrome/browser/ui/zoom/BUILD.gn
++++ b/chrome/browser/ui/zoom/BUILD.gn
+@@ -2,7 +2,7 @@
+ # Use of this source code is governed by a BSD-style license that can be
+ # found in the LICENSE file.
+ 
+-assert(is_win || is_mac || is_linux || is_chromeos || is_android)
++assert(is_win || is_mac || is_linux || is_chromeos || is_android || cef_content_only)
+ 
+ source_set("zoom") {
+   sources = [
 diff --git a/chrome/browser/ui/web_modal/BUILD.gn b/chrome/browser/ui/web_modal/BUILD.gn
 --- a/chrome/browser/ui/web_modal/BUILD.gn
 +++ b/chrome/browser/ui/web_modal/BUILD.gn
@@ -402,7 +678,7 @@ diff --git a/chrome/browser/ui/web_modal/BUILD.gn b/chrome/browser/ui/web_modal/
  # found in the LICENSE file.
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  source_set("browser_window_modal_dialog_delegate") {
    public = [ "browser_window_modal_dialog_delegate.h" ]
@@ -430,6 +706,42 @@ diff --git a/chrome/browser/ui/read_anything/BUILD.gn b/chrome/browser/ui/read_a
  
  import("//build/config/compiler/compiler.gni")
  import("//chrome/common/features.gni")
+diff --git a/chrome/browser/ui/bluetooth/BUILD.gn b/chrome/browser/ui/bluetooth/BUILD.gn
+--- a/chrome/browser/ui/bluetooth/BUILD.gn
++++ b/chrome/browser/ui/bluetooth/BUILD.gn
+@@ -2,7 +2,7 @@
+ # Use of this source code is governed by a BSD-style license that can be
+ # found in the LICENSE file.
+ 
+-assert(is_win || is_mac || is_linux || is_chromeos || is_android)
++assert(is_win || is_mac || is_linux || is_chromeos || is_android || cef_content_only)
+ 
+ source_set("bluetooth") {
+   sources = [ "bluetooth_dialogs.h" ]
+diff --git a/chrome/browser/ui/digital_credentials/BUILD.gn b/chrome/browser/ui/digital_credentials/BUILD.gn
+--- a/chrome/browser/ui/digital_credentials/BUILD.gn
++++ b/chrome/browser/ui/digital_credentials/BUILD.gn
+@@ -2,7 +2,7 @@
+ # Use of this source code is governed by a BSD-style license that can be
+ # found in the LICENSE file.
+ 
+-assert(is_win || is_mac || is_linux || is_chromeos || is_android)
++assert(is_win || is_mac || is_linux || is_chromeos || is_android || cef_content_only)
+ 
+ source_set("digital_credentials") {
+   sources = []
+diff --git a/chrome/browser/ui/passwords/settings/BUILD.gn b/chrome/browser/ui/passwords/settings/BUILD.gn
+--- a/chrome/browser/ui/passwords/settings/BUILD.gn
++++ b/chrome/browser/ui/passwords/settings/BUILD.gn
+@@ -2,7 +2,7 @@
+ # Use of this source code is governed by a BSD-style license that can be
+ # found in the LICENSE file.
+ 
+-assert(!is_android, "Password import/export file selection are desktop-only.")
++assert((!is_android, "Password import/export file selection are desktop-only.") || cef_content_only)
+ 
+ source_set("settings") {
+   sources = [
 diff --git a/chrome/browser/ui/passwords/bubble_controllers/BUILD.gn b/chrome/browser/ui/passwords/bubble_controllers/BUILD.gn
 --- a/chrome/browser/ui/passwords/bubble_controllers/BUILD.gn
 +++ b/chrome/browser/ui/passwords/bubble_controllers/BUILD.gn
@@ -438,7 +750,7 @@ diff --git a/chrome/browser/ui/passwords/bubble_controllers/BUILD.gn b/chrome/br
  # found in the LICENSE file.
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  source_set("bubble_controllers") {
    sources = [
@@ -450,7 +762,7 @@ diff --git a/chrome/browser/ui/passwords/bubble_controllers/password_change/BUIL
  # found in the LICENSE file.
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  source_set("password_change") {
    sources = [
@@ -462,7 +774,7 @@ diff --git a/chrome/browser/ui/fullscreen/BUILD.gn b/chrome/browser/ui/fullscree
  import("//build/config/ui.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  source_set("fullscreen") {
    public = [ "browser_window_fullscreen_controller.h" ]
@@ -474,10 +786,22 @@ diff --git a/chrome/browser/ui/startup/focus/BUILD.gn b/chrome/browser/ui/startu
  
  # Focus functionality is only for desktop platforms
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  # Focus flag implementation for startup
  source_set("focus") {
+diff --git a/chrome/browser/ui/page_info/BUILD.gn b/chrome/browser/ui/page_info/BUILD.gn
+--- a/chrome/browser/ui/page_info/BUILD.gn
++++ b/chrome/browser/ui/page_info/BUILD.gn
+@@ -4,7 +4,7 @@
+ 
+ import("//components/safe_browsing/buildflags.gni")
+ 
+-assert(is_win || is_mac || is_linux || is_chromeos || is_android)
++assert(is_win || is_mac || is_linux || is_chromeos || is_android || cef_content_only)
+ 
+ source_set("page_info") {
+   sources = [
 diff --git a/chrome/browser/ui/toolbar/cast/BUILD.gn b/chrome/browser/ui/toolbar/cast/BUILD.gn
 --- a/chrome/browser/ui/toolbar/cast/BUILD.gn
 +++ b/chrome/browser/ui/toolbar/cast/BUILD.gn
@@ -490,6 +814,18 @@ diff --git a/chrome/browser/ui/toolbar/cast/BUILD.gn b/chrome/browser/ui/toolbar
  
  source_set("cast") {
    sources = [
+diff --git a/chrome/browser/ui/autofill/BUILD.gn b/chrome/browser/ui/autofill/BUILD.gn
+--- a/chrome/browser/ui/autofill/BUILD.gn
++++ b/chrome/browser/ui/autofill/BUILD.gn
+@@ -12,7 +12,7 @@
+   import("//build/config/android/rules.gni")
+ }
+ 
+-assert(is_win || is_mac || is_linux || is_chromeos || is_android)
++assert(is_win || is_mac || is_linux || is_chromeos || is_android || cef_content_only)
+ 
+ if (is_android) {
+   java_cpp_enum("autofill_ai_ui_java_enums") {
 diff --git a/chrome/browser/ui/autofill/email_verifier/BUILD.gn b/chrome/browser/ui/autofill/email_verifier/BUILD.gn
 --- a/chrome/browser/ui/autofill/email_verifier/BUILD.gn
 +++ b/chrome/browser/ui/autofill/email_verifier/BUILD.gn
@@ -502,6 +838,18 @@ diff --git a/chrome/browser/ui/autofill/email_verifier/BUILD.gn b/chrome/browser
  
  source_set("email_verifier") {
    public = [
+diff --git a/chrome/browser/ui/autofill/payments/BUILD.gn b/chrome/browser/ui/autofill/payments/BUILD.gn
+--- a/chrome/browser/ui/autofill/payments/BUILD.gn
++++ b/chrome/browser/ui/autofill/payments/BUILD.gn
+@@ -4,7 +4,7 @@
+ 
+ import("//build/config/ui.gni")
+ 
+-assert(is_win || is_mac || is_linux || is_chromeos || is_android)
++assert(is_win || is_mac || is_linux || is_chromeos || is_android || cef_content_only)
+ 
+ source_set("payments") {
+   sources = [
 diff --git a/chrome/browser/ui/permission_bubble/BUILD.gn b/chrome/browser/ui/permission_bubble/BUILD.gn
 --- a/chrome/browser/ui/permission_bubble/BUILD.gn
 +++ b/chrome/browser/ui/permission_bubble/BUILD.gn
@@ -546,10 +894,22 @@ diff --git a/chrome/browser/ui/webui_browser/BUILD.gn b/chrome/browser/ui/webui_
  import("//mojo/public/tools/bindings/mojom.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  source_set("headers") {
    sources = [ "webui_browser.h" ]
+diff --git a/chrome/browser/ui/ai_overlay_dialog/BUILD.gn b/chrome/browser/ui/ai_overlay_dialog/BUILD.gn
+--- a/chrome/browser/ui/ai_overlay_dialog/BUILD.gn
++++ b/chrome/browser/ui/ai_overlay_dialog/BUILD.gn
+@@ -5,7 +5,7 @@
+ import("//build/config/chrome_build.gni")
+ import("//build/config/ui.gni")
+ 
+-assert(is_win || is_mac || is_linux || is_chromeos || is_desktop_android)
++assert(is_win || is_mac || is_linux || is_chromeos || is_desktop_android || cef_content_only)
+ 
+ source_set("ai_overlay_dialog") {
+   sources = [
 diff --git a/chrome/browser/ui/waap/BUILD.gn b/chrome/browser/ui/waap/BUILD.gn
 --- a/chrome/browser/ui/waap/BUILD.gn
 +++ b/chrome/browser/ui/waap/BUILD.gn
@@ -558,7 +918,7 @@ diff --git a/chrome/browser/ui/waap/BUILD.gn b/chrome/browser/ui/waap/BUILD.gn
  # found in the LICENSE file.
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  static_library("waap") {
    sources = [
@@ -570,10 +930,22 @@ diff --git a/chrome/browser/ui/window_name_prompt/BUILD.gn b/chrome/browser/ui/w
  
  source_set("browser_tests") {
 -  assert(!is_android)
-+  assert(!is_android || cef_content_only)
++  assert((!is_android) || cef_content_only)
  
    testonly = true
    defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
+diff --git a/chrome/browser/ui/safety_hub/BUILD.gn b/chrome/browser/ui/safety_hub/BUILD.gn
+--- a/chrome/browser/ui/safety_hub/BUILD.gn
++++ b/chrome/browser/ui/safety_hub/BUILD.gn
+@@ -5,7 +5,7 @@
+ import("//components/safe_browsing/buildflags.gni")
+ import("//extensions/buildflags/buildflags.gni")
+ 
+-assert(is_win || is_mac || is_linux || is_chromeos || is_android)
++assert(is_win || is_mac || is_linux || is_chromeos || is_android || cef_content_only)
+ 
+ source_set("safety_hub") {
+   sources = [
 diff --git a/chrome/browser/ui/interaction/BUILD.gn b/chrome/browser/ui/interaction/BUILD.gn
 --- a/chrome/browser/ui/interaction/BUILD.gn
 +++ b/chrome/browser/ui/interaction/BUILD.gn
@@ -582,9 +954,33 @@ diff --git a/chrome/browser/ui/interaction/BUILD.gn b/chrome/browser/ui/interact
  # found in the LICENSE file.
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  source_set("interaction") {
+   sources = [
+diff --git a/chrome/browser/ui/omnibox/BUILD.gn b/chrome/browser/ui/omnibox/BUILD.gn
+--- a/chrome/browser/ui/omnibox/BUILD.gn
++++ b/chrome/browser/ui/omnibox/BUILD.gn
+@@ -5,7 +5,7 @@
+ import("//build/config/chromeos/args.gni")
+ import("//ui/webui/webui_features.gni")
+ 
+-assert(is_win || is_mac || is_linux || is_chromeos || is_android)
++assert(is_win || is_mac || is_linux || is_chromeos || is_android || cef_content_only)
+ 
+ # The public interface has no circular dependencies.
+ source_set("omnibox") {
+diff --git a/chrome/browser/ui/find_bar/BUILD.gn b/chrome/browser/ui/find_bar/BUILD.gn
+--- a/chrome/browser/ui/find_bar/BUILD.gn
++++ b/chrome/browser/ui/find_bar/BUILD.gn
+@@ -4,7 +4,7 @@
+ 
+ import("//build/config/chromeos/args.gni")
+ 
+-assert(is_win || is_mac || is_linux || is_chromeos || is_android)
++assert(is_win || is_mac || is_linux || is_chromeos || is_android || cef_content_only)
+ 
+ source_set("find_bar") {
    sources = [
 diff --git a/chrome/browser/ui/apps/BUILD.gn b/chrome/browser/ui/apps/BUILD.gn
 --- a/chrome/browser/ui/apps/BUILD.gn
@@ -597,6 +993,18 @@ diff --git a/chrome/browser/ui/apps/BUILD.gn b/chrome/browser/ui/apps/BUILD.gn
 +assert(is_win || is_mac || is_linux || is_chromeos || cef_content_only)
  
  source_set("apps") {
+   sources = [
+diff --git a/chrome/browser/ui/javascript_dialogs/BUILD.gn b/chrome/browser/ui/javascript_dialogs/BUILD.gn
+--- a/chrome/browser/ui/javascript_dialogs/BUILD.gn
++++ b/chrome/browser/ui/javascript_dialogs/BUILD.gn
+@@ -2,7 +2,7 @@
+ # Use of this source code is governed by a BSD-style license that can be
+ # found in the LICENSE file.
+ 
+-assert(is_win || is_mac || is_linux || is_chromeos || is_android)
++assert(is_win || is_mac || is_linux || is_chromeos || is_android || cef_content_only)
+ 
+ source_set("javascript_dialogs") {
    sources = [
 diff --git a/chrome/browser/ui/views/data_sharing/BUILD.gn b/chrome/browser/ui/views/data_sharing/BUILD.gn
 --- a/chrome/browser/ui/views/data_sharing/BUILD.gn
@@ -646,6 +1054,18 @@ diff --git a/chrome/browser/ui/views/location_bar/cookie_controls/BUILD.gn b/chr
  
  source_set("cookie_controls") {
    sources = []
+diff --git a/chrome/browser/ui/views/zoom/BUILD.gn b/chrome/browser/ui/views/zoom/BUILD.gn
+--- a/chrome/browser/ui/views/zoom/BUILD.gn
++++ b/chrome/browser/ui/views/zoom/BUILD.gn
+@@ -2,7 +2,7 @@
+ # Use of this source code is governed by a BSD-style license that can be
+ # found in the LICENSE file.
+ 
+-assert(!is_android, "Zoom Page actions are for desktop platforms only")
++assert((!is_android, "Zoom Page actions are for desktop platforms only") || cef_content_only)
+ 
+ source_set("zoom") {
+   sources = [ "zoom_view_controller.h" ]
 diff --git a/chrome/browser/ui/views/shortcuts/BUILD.gn b/chrome/browser/ui/views/shortcuts/BUILD.gn
 --- a/chrome/browser/ui/views/shortcuts/BUILD.gn
 +++ b/chrome/browser/ui/views/shortcuts/BUILD.gn
@@ -654,7 +1074,7 @@ diff --git a/chrome/browser/ui/views/shortcuts/BUILD.gn b/chrome/browser/ui/view
  import("//chrome/browser/buildflags.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  assert(!is_chromeos)
  
  source_set("shortcuts") {
@@ -666,10 +1086,22 @@ diff --git a/chrome/browser/ui/views/search_engines/BUILD.gn b/chrome/browser/ui
  # found in the LICENSE file.
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  source_set("search_engines") {
    public = [ "dse_reset_dialog.h" ]
+diff --git a/chrome/browser/ui/views/webid/BUILD.gn b/chrome/browser/ui/views/webid/BUILD.gn
+--- a/chrome/browser/ui/views/webid/BUILD.gn
++++ b/chrome/browser/ui/views/webid/BUILD.gn
+@@ -4,7 +4,7 @@
+ 
+ import("//build/config/ozone.gni")
+ 
+-assert(!is_android, "This is desktop code for fedcm.")
++assert((!is_android, "This is desktop code for fedcm.") || cef_content_only)
+ 
+ source_set("webid") {
+   public = [
 diff --git a/chrome/browser/ui/views/app_menu/BUILD.gn b/chrome/browser/ui/views/app_menu/BUILD.gn
 --- a/chrome/browser/ui/views/app_menu/BUILD.gn
 +++ b/chrome/browser/ui/views/app_menu/BUILD.gn
@@ -690,7 +1122,7 @@ diff --git a/chrome/browser/ui/views/drive_picker_host/BUILD.gn b/chrome/browser
  import("//mojo/public/tools/bindings/mojom.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  mojom("mojo_bindings") {
    sources = [ "drive_picker_result_handler.mojom" ]
@@ -774,7 +1206,7 @@ diff --git a/chrome/browser/ui/views/new_tab_footer/BUILD.gn b/chrome/browser/ui
  # found in the LICENSE file.
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  source_set("new_tab_footer") {
    sources = [
@@ -822,10 +1254,34 @@ diff --git a/chrome/browser/ui/views/side_panel/customize_chrome/BUILD.gn b/chro
  
  assert(enable_webui_ntp)
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  # Separate from //chrome/browser/ui/views/side_panel to avoid a cycle:
  # //chrome/browser/ui/side_panel:side_panel_views_dependent ->
+diff --git a/chrome/browser/ui/views/js_optimization/BUILD.gn b/chrome/browser/ui/views/js_optimization/BUILD.gn
+--- a/chrome/browser/ui/views/js_optimization/BUILD.gn
++++ b/chrome/browser/ui/views/js_optimization/BUILD.gn
+@@ -2,7 +2,7 @@
+ # Use of this source code is governed by a BSD-style license that can be
+ # found in the LICENSE file.
+ 
+-assert(!is_android, "JS optimization actions are for desktop platforms only")
++assert((!is_android, "JS optimization actions are for desktop platforms only") || cef_content_only)
+ 
+ source_set("js_optimization") {
+   sources = [
+diff --git a/chrome/browser/ui/views/page_action/BUILD.gn b/chrome/browser/ui/views/page_action/BUILD.gn
+--- a/chrome/browser/ui/views/page_action/BUILD.gn
++++ b/chrome/browser/ui/views/page_action/BUILD.gn
+@@ -2,7 +2,7 @@
+ # Use of this source code is governed by a BSD-style license that can be
+ # found in the LICENSE file.
+ 
+-assert(!is_android, "Page actions are for desktop platforms only")
++assert((!is_android, "Page actions are for desktop platforms only") || cef_content_only)
+ 
+ source_set("page_action") {
+   friend = [
 diff --git a/chrome/browser/ui/views/relaunch_notification/BUILD.gn b/chrome/browser/ui/views/relaunch_notification/BUILD.gn
 --- a/chrome/browser/ui/views/relaunch_notification/BUILD.gn
 +++ b/chrome/browser/ui/views/relaunch_notification/BUILD.gn
@@ -846,7 +1302,7 @@ diff --git a/chrome/browser/ui/views/picture_in_picture/BUILD.gn b/chrome/browse
  import("//extensions/buildflags/buildflags.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  source_set("picture_in_picture") {
    public = [
@@ -870,7 +1326,7 @@ diff --git a/chrome/browser/ui/views/frame/BUILD.gn b/chrome/browser/ui/views/fr
  import("//extensions/buildflags/buildflags.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  source_set("safe_invoke") {
    sources = [ "safe_invoke/safe_invoke.h" ]
@@ -894,7 +1350,7 @@ diff --git a/chrome/browser/ui/views/lens/BUILD.gn b/chrome/browser/ui/views/len
  # found in the LICENSE file.
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  source_set("lens") {
    public = [ "lens_region_search_instructions_view.h" ]
@@ -910,6 +1366,30 @@ diff --git a/chrome/browser/ui/views/bubble/BUILD.gn b/chrome/browser/ui/views/b
  
  import("//build/config/ui.gni")
  
+diff --git a/chrome/browser/ui/page_action/BUILD.gn b/chrome/browser/ui/page_action/BUILD.gn
+--- a/chrome/browser/ui/page_action/BUILD.gn
++++ b/chrome/browser/ui/page_action/BUILD.gn
+@@ -2,7 +2,7 @@
+ # Use of this source code is governed by a BSD-style license that can be
+ # found in the LICENSE file.
+ 
+-assert(is_win || is_mac || is_linux || is_chromeos || is_android)
++assert(is_win || is_mac || is_linux || is_chromeos || is_android || cef_content_only)
+ 
+ source_set("icon_type") {
+   sources = [ "page_action_icon_type.h" ]
+diff --git a/chrome/browser/ui/exclusive_access/BUILD.gn b/chrome/browser/ui/exclusive_access/BUILD.gn
+--- a/chrome/browser/ui/exclusive_access/BUILD.gn
++++ b/chrome/browser/ui/exclusive_access/BUILD.gn
+@@ -6,7 +6,7 @@
+ import("//build/config/ozone.gni")
+ import("//extensions/buildflags/buildflags.gni")
+ 
+-assert(is_win || is_mac || is_linux || is_chromeos || is_android)
++assert(is_win || is_mac || is_linux || is_chromeos || is_android || cef_content_only)
+ 
+ source_set("exclusive_access") {
+   sources = [
 diff --git a/chrome/browser/ui/window_feature_controller/BUILD.gn b/chrome/browser/ui/window_feature_controller/BUILD.gn
 --- a/chrome/browser/ui/window_feature_controller/BUILD.gn
 +++ b/chrome/browser/ui/window_feature_controller/BUILD.gn
@@ -918,10 +1398,34 @@ diff --git a/chrome/browser/ui/window_feature_controller/BUILD.gn b/chrome/brows
  import("//build/config/ui.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  source_set("window_feature_controller") {
    public = [ "window_feature_controller.h" ]
+diff --git a/chrome/browser/ui/login/BUILD.gn b/chrome/browser/ui/login/BUILD.gn
+--- a/chrome/browser/ui/login/BUILD.gn
++++ b/chrome/browser/ui/login/BUILD.gn
+@@ -4,7 +4,7 @@
+ 
+ import("//extensions/buildflags/buildflags.gni")
+ 
+-assert(is_win || is_mac || is_linux || is_chromeos || is_android)
++assert(is_win || is_mac || is_linux || is_chromeos || is_android || cef_content_only)
+ 
+ source_set("login") {
+   sources = [
+diff --git a/chrome/browser/ui/window_sizer/BUILD.gn b/chrome/browser/ui/window_sizer/BUILD.gn
+--- a/chrome/browser/ui/window_sizer/BUILD.gn
++++ b/chrome/browser/ui/window_sizer/BUILD.gn
+@@ -4,7 +4,7 @@
+ 
+ import("//build/config/ui.gni")
+ 
+-assert(!is_android && !is_fuchsia)
++assert((!is_android && !is_fuchsia) || cef_content_only)
+ 
+ source_set("window_sizer") {
+   sources = [ "window_sizer.h" ]
 diff --git a/chrome/browser/ui/commerce/BUILD.gn b/chrome/browser/ui/commerce/BUILD.gn
 --- a/chrome/browser/ui/commerce/BUILD.gn
 +++ b/chrome/browser/ui/commerce/BUILD.gn
@@ -933,6 +1437,18 @@ diff --git a/chrome/browser/ui/commerce/BUILD.gn b/chrome/browser/ui/commerce/BU
 +assert(is_win || is_mac || is_linux || is_chromeos || cef_content_only)
  
  source_set("commerce") {
+   sources = [
+diff --git a/chrome/browser/ui/file_system_access/BUILD.gn b/chrome/browser/ui/file_system_access/BUILD.gn
+--- a/chrome/browser/ui/file_system_access/BUILD.gn
++++ b/chrome/browser/ui/file_system_access/BUILD.gn
+@@ -4,7 +4,7 @@
+ 
+ import("//components/safe_browsing/buildflags.gni")
+ 
+-assert(is_win || is_mac || is_linux || is_chromeos || is_android)
++assert(is_win || is_mac || is_linux || is_chromeos || is_android || cef_content_only)
+ 
+ source_set("file_system_access") {
    sources = [
 diff --git a/chrome/browser/ui/frame/BUILD.gn b/chrome/browser/ui/frame/BUILD.gn
 --- a/chrome/browser/ui/frame/BUILD.gn
@@ -982,6 +1498,18 @@ diff --git a/chrome/browser/ui/shared_highlighting/BUILD.gn b/chrome/browser/ui/
  
  source_set("shared_highlighting") {
    sources = [
+diff --git a/chrome/browser/ui/tab_contents/BUILD.gn b/chrome/browser/ui/tab_contents/BUILD.gn
+--- a/chrome/browser/ui/tab_contents/BUILD.gn
++++ b/chrome/browser/ui/tab_contents/BUILD.gn
+@@ -5,7 +5,7 @@
+ import("//components/enterprise/buildflags/buildflags.gni")
+ import("//extensions/buildflags/buildflags.gni")
+ 
+-assert(is_win || is_mac || is_linux || is_chromeos || is_android)
++assert(is_win || is_mac || is_linux || is_chromeos || is_android || cef_content_only)
+ 
+ source_set("tab_contents") {
+   sources = [
 diff --git a/chrome/browser/ui/media_router/BUILD.gn b/chrome/browser/ui/media_router/BUILD.gn
 --- a/chrome/browser/ui/media_router/BUILD.gn
 +++ b/chrome/browser/ui/media_router/BUILD.gn
@@ -1014,10 +1542,22 @@ diff --git a/chrome/browser/ui/window_metadata/BUILD.gn b/chrome/browser/ui/wind
  import("//components/captive_portal/core/features.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  source_set("window_metadata") {
    public = [ "window_metadata_controller.h" ]
+diff --git a/chrome/browser/ui/prefs/BUILD.gn b/chrome/browser/ui/prefs/BUILD.gn
+--- a/chrome/browser/ui/prefs/BUILD.gn
++++ b/chrome/browser/ui/prefs/BUILD.gn
+@@ -4,7 +4,7 @@
+ 
+ import("//extensions/buildflags/buildflags.gni")
+ 
+-assert(is_win || is_mac || is_linux || is_chromeos || is_android)
++assert(is_win || is_mac || is_linux || is_chromeos || is_android || cef_content_only)
+ 
+ source_set("prefs") {
+   sources = [
 diff --git a/chrome/browser/ui/bookmarks/BUILD.gn b/chrome/browser/ui/bookmarks/BUILD.gn
 --- a/chrome/browser/ui/bookmarks/BUILD.gn
 +++ b/chrome/browser/ui/bookmarks/BUILD.gn
@@ -1038,10 +1578,22 @@ diff --git a/chrome/browser/ui/browser_active_state_manager/BUILD.gn b/chrome/br
  # found in the LICENSE file.
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  source_set("browser_active_state_manager") {
    public = [ "browser_active_state_manager.h" ]
+diff --git a/chrome/browser/ui/webui/signin/BUILD.gn b/chrome/browser/ui/webui/signin/BUILD.gn
+--- a/chrome/browser/ui/webui/signin/BUILD.gn
++++ b/chrome/browser/ui/webui/signin/BUILD.gn
+@@ -5,7 +5,7 @@
+ import("//chrome/common/features.gni")
+ import("//components/signin/features.gni")
+ 
+-assert(!is_fuchsia && !is_android)
++assert((!is_fuchsia && !is_android) || cef_content_only)
+ 
+ # Removes circular dep between |login| and |signin|.
+ if (!is_chromeos) {
 diff --git a/chrome/browser/ui/webui/browser_command/BUILD.gn b/chrome/browser/ui/webui/browser_command/BUILD.gn
 --- a/chrome/browser/ui/webui/browser_command/BUILD.gn
 +++ b/chrome/browser/ui/webui/browser_command/BUILD.gn
@@ -1050,7 +1602,7 @@ diff --git a/chrome/browser/ui/webui/browser_command/BUILD.gn b/chrome/browser/u
  # found in the LICENSE file.
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  source_set("browser_command") {
    sources = [
@@ -1062,7 +1614,7 @@ diff --git a/chrome/browser/ui/webui/data_sharing/BUILD.gn b/chrome/browser/ui/w
  # found in the LICENSE file.
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  import("//mojo/public/tools/bindings/mojom.gni")
  
@@ -1078,6 +1630,30 @@ diff --git a/chrome/browser/ui/webui/settings/BUILD.gn b/chrome/browser/ui/webui
  
  source_set("settings") {
    sources = [
+diff --git a/chrome/browser/ui/webui/cr_components/customize_color_scheme_mode/BUILD.gn b/chrome/browser/ui/webui/cr_components/customize_color_scheme_mode/BUILD.gn
+--- a/chrome/browser/ui/webui/cr_components/customize_color_scheme_mode/BUILD.gn
++++ b/chrome/browser/ui/webui/cr_components/customize_color_scheme_mode/BUILD.gn
+@@ -4,7 +4,7 @@
+ 
+ import("//ui/webui/webui_features.gni")
+ 
+-assert(!is_android || enable_webui_ntp)
++assert((!is_android || enable_webui_ntp) || cef_content_only)
+ 
+ source_set("customize_color_scheme_mode") {
+   sources = [ "customize_color_scheme_mode_handler.cc" ]
+diff --git a/chrome/browser/ui/webui/about/BUILD.gn b/chrome/browser/ui/webui/about/BUILD.gn
+--- a/chrome/browser/ui/webui/about/BUILD.gn
++++ b/chrome/browser/ui/webui/about/BUILD.gn
+@@ -4,7 +4,7 @@
+ 
+ import("//ui/webui/webui_features.gni")
+ 
+-assert(is_win || is_mac || is_linux || is_chromeos || is_android)
++assert(is_win || is_mac || is_linux || is_chromeos || is_android || cef_content_only)
+ 
+ source_set("about") {
+   sources = [ "about_ui.h" ]
 diff --git a/chrome/browser/ui/webui/downloads/BUILD.gn b/chrome/browser/ui/webui/downloads/BUILD.gn
 --- a/chrome/browser/ui/webui/downloads/BUILD.gn
 +++ b/chrome/browser/ui/webui/downloads/BUILD.gn
@@ -1086,10 +1662,22 @@ diff --git a/chrome/browser/ui/webui/downloads/BUILD.gn b/chrome/browser/ui/webu
  import("//mojo/public/tools/bindings/mojom.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  mojom("mojo_bindings") {
    sources = [ "downloads.mojom" ]
+diff --git a/chrome/browser/ui/webui/whats_new/BUILD.gn b/chrome/browser/ui/webui/whats_new/BUILD.gn
+--- a/chrome/browser/ui/webui/whats_new/BUILD.gn
++++ b/chrome/browser/ui/webui/whats_new/BUILD.gn
+@@ -5,7 +5,7 @@
+ import("//chrome/common/features.gni")
+ import("//mojo/public/tools/bindings/mojom.gni")
+ 
+-assert(!is_android && !is_fuchsia)
++assert((!is_android && !is_fuchsia) || cef_content_only)
+ 
+ mojom("mojo_bindings") {
+   sources = [ "whats_new.mojom" ]
 diff --git a/chrome/browser/ui/webui/webui_toolbar/BUILD.gn b/chrome/browser/ui/webui/webui_toolbar/BUILD.gn
 --- a/chrome/browser/ui/webui/webui_toolbar/BUILD.gn
 +++ b/chrome/browser/ui/webui/webui_toolbar/BUILD.gn
@@ -1098,7 +1686,7 @@ diff --git a/chrome/browser/ui/webui/webui_toolbar/BUILD.gn b/chrome/browser/ui/
  # found in the LICENSE file.
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  import("//mojo/public/tools/bindings/mojom.gni")
  import("//ui/webui/resources/tools/build_webui.gni")
@@ -1122,7 +1710,7 @@ diff --git a/chrome/browser/ui/webui/webnn_internals/BUILD.gn b/chrome/browser/u
  import("//services/webnn/public/webnn_features.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  mojom("mojo_bindings") {
    sources = [ "webnn_internals.mojom" ]
@@ -1134,7 +1722,7 @@ diff --git a/chrome/browser/ui/webui/multistep_filter_internals/BUILD.gn b/chrom
  import("//mojo/public/tools/bindings/mojom.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  mojom("mojo_bindings") {
    sources = [ "multistep_filter_internals.mojom" ]
@@ -1146,7 +1734,7 @@ diff --git a/chrome/browser/ui/webui/profile_internals/BUILD.gn b/chrome/browser
  # found in the LICENSE file.
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  source_set("profile_internals") {
    sources = [
@@ -1170,7 +1758,7 @@ diff --git a/chrome/browser/ui/webui/drive_picker_host/BUILD.gn b/chrome/browser
  import("//mojo/public/tools/bindings/mojom.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  mojom("mojo_bindings") {
    sources = [ "drive_picker_host.mojom" ]
@@ -1182,10 +1770,22 @@ diff --git a/chrome/browser/ui/webui/drive_picker_host/untrusted/BUILD.gn b/chro
  import("//mojo/public/tools/bindings/mojom.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  mojom("mojo_bindings") {
    sources = [ "drive_picker_host_untrusted.mojom" ]
+diff --git a/chrome/browser/ui/webui/safe_browsing/BUILD.gn b/chrome/browser/ui/webui/safe_browsing/BUILD.gn
+--- a/chrome/browser/ui/webui/safe_browsing/BUILD.gn
++++ b/chrome/browser/ui/webui/safe_browsing/BUILD.gn
+@@ -2,7 +2,7 @@
+ # Use of this source code is governed by a BSD-style license that can be
+ # found in the LICENSE file.
+ 
+-assert(is_win || is_mac || is_linux || is_chromeos || is_android)
++assert(is_win || is_mac || is_linux || is_chromeos || is_android || cef_content_only)
+ 
+ source_set("safe_browsing") {
+   sources = [
 diff --git a/chrome/browser/ui/webui/iwa_dev/BUILD.gn b/chrome/browser/ui/webui/iwa_dev/BUILD.gn
 --- a/chrome/browser/ui/webui/iwa_dev/BUILD.gn
 +++ b/chrome/browser/ui/webui/iwa_dev/BUILD.gn
@@ -1194,7 +1794,7 @@ diff --git a/chrome/browser/ui/webui/iwa_dev/BUILD.gn b/chrome/browser/ui/webui/
  import("//mojo/public/tools/bindings/mojom.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  mojom("mojo_bindings") {
    sources = [ "iwa_dev.mojom" ]
@@ -1206,10 +1806,34 @@ diff --git a/chrome/browser/ui/webui/indigo_internals/BUILD.gn b/chrome/browser/
  import("//mojo/public/tools/bindings/mojom.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  mojom("mojo_bindings") {
    sources = [ "indigo_internals.mojom" ]
+diff --git a/chrome/browser/ui/webui/omnibox_popup/mojom/BUILD.gn b/chrome/browser/ui/webui/omnibox_popup/mojom/BUILD.gn
+--- a/chrome/browser/ui/webui/omnibox_popup/mojom/BUILD.gn
++++ b/chrome/browser/ui/webui/omnibox_popup/mojom/BUILD.gn
+@@ -4,7 +4,7 @@
+ 
+ import("//mojo/public/tools/bindings/mojom.gni")
+ 
+-assert(!is_android && !is_ios)
++assert((!is_android && !is_ios) || cef_content_only)
+ 
+ mojom("mojom") {
+   sources = [
+diff --git a/chrome/browser/ui/webui/ai_overlay_dialog/BUILD.gn b/chrome/browser/ui/webui/ai_overlay_dialog/BUILD.gn
+--- a/chrome/browser/ui/webui/ai_overlay_dialog/BUILD.gn
++++ b/chrome/browser/ui/webui/ai_overlay_dialog/BUILD.gn
+@@ -5,7 +5,7 @@
+ import("//build/config/chrome_build.gni")
+ import("//mojo/public/tools/bindings/mojom.gni")
+ 
+-assert(is_win || is_mac || is_linux || is_chromeos || is_desktop_android)
++assert(is_win || is_mac || is_linux || is_chromeos || is_desktop_android || cef_content_only)
+ 
+ mojom("mojo_bindings") {
+   sources = [ "ai_overlay_dialog.mojom" ]
 diff --git a/chrome/browser/ui/webui/new_tab_footer/BUILD.gn b/chrome/browser/ui/webui/new_tab_footer/BUILD.gn
 --- a/chrome/browser/ui/webui/new_tab_footer/BUILD.gn
 +++ b/chrome/browser/ui/webui/new_tab_footer/BUILD.gn
@@ -1218,9 +1842,33 @@ diff --git a/chrome/browser/ui/webui/new_tab_footer/BUILD.gn b/chrome/browser/ui
  import("//mojo/public/tools/bindings/mojom.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  source_set("new_tab_footer") {
+   sources = [
+diff --git a/chrome/browser/ui/webui/accessibility/BUILD.gn b/chrome/browser/ui/webui/accessibility/BUILD.gn
+--- a/chrome/browser/ui/webui/accessibility/BUILD.gn
++++ b/chrome/browser/ui/webui/accessibility/BUILD.gn
+@@ -2,7 +2,7 @@
+ # Use of this source code is governed by a BSD-style license that can be
+ # found in the LICENSE file.
+ 
+-assert(is_win || is_mac || is_linux || is_chromeos || is_android)
++assert(is_win || is_mac || is_linux || is_chromeos || is_android || cef_content_only)
+ 
+ source_set("accessibility") {
+   sources = [ "accessibility_ui.h" ]
+diff --git a/chrome/browser/ui/webui/top_chrome/BUILD.gn b/chrome/browser/ui/webui/top_chrome/BUILD.gn
+--- a/chrome/browser/ui/webui/top_chrome/BUILD.gn
++++ b/chrome/browser/ui/webui/top_chrome/BUILD.gn
+@@ -6,7 +6,7 @@
+ 
+ # On Android this is pulled in by the WebUI NTP (enable_webui_ntp) and by
+ # ai_overlay_dialog (is_desktop_android), which are separate build args.
+-assert(!is_android || enable_webui_ntp || is_desktop_android)
++assert((!is_android || enable_webui_ntp || is_desktop_android) || cef_content_only)
+ 
+ source_set("top_chrome") {
    sources = [
 diff --git a/chrome/browser/ui/webui/content_annotator_internals/BUILD.gn b/chrome/browser/ui/webui/content_annotator_internals/BUILD.gn
 --- a/chrome/browser/ui/webui/content_annotator_internals/BUILD.gn
@@ -1230,9 +1878,33 @@ diff --git a/chrome/browser/ui/webui/content_annotator_internals/BUILD.gn b/chro
  # found in the LICENSE file.
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  source_set("content_annotator_internals") {
+   sources = [
+diff --git a/chrome/browser/ui/webui/access_code_cast/BUILD.gn b/chrome/browser/ui/webui/access_code_cast/BUILD.gn
+--- a/chrome/browser/ui/webui/access_code_cast/BUILD.gn
++++ b/chrome/browser/ui/webui/access_code_cast/BUILD.gn
+@@ -5,7 +5,7 @@
+ import("//mojo/public/tools/bindings/mojom.gni")
+ import("//third_party/protobuf/proto_library.gni")
+ 
+-assert(!is_android, "AccessCodeCast is not for android.")
++assert((!is_android, "AccessCodeCast is not for android.") || cef_content_only)
+ 
+ mojom("mojo_bindings") {
+   sources = [ "access_code_cast.mojom" ]
+diff --git a/chrome/browser/ui/webui/default_browser/BUILD.gn b/chrome/browser/ui/webui/default_browser/BUILD.gn
+--- a/chrome/browser/ui/webui/default_browser/BUILD.gn
++++ b/chrome/browser/ui/webui/default_browser/BUILD.gn
+@@ -4,7 +4,7 @@
+ 
+ import("//mojo/public/tools/bindings/mojom.gni")
+ 
+-assert(!is_android && !is_chromeos)
++assert((!is_android && !is_chromeos) || cef_content_only)
+ 
+ source_set("default_browser_modal") {
    sources = [
 diff --git a/chrome/browser/ui/webui/side_panel/comments/BUILD.gn b/chrome/browser/ui/webui/side_panel/comments/BUILD.gn
 --- a/chrome/browser/ui/webui/side_panel/comments/BUILD.gn
@@ -1242,7 +1914,7 @@ diff --git a/chrome/browser/ui/webui/side_panel/comments/BUILD.gn b/chrome/brows
  import("//mojo/public/tools/bindings/mojom.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  mojom("mojo_bindings") {
    sources = [ "comments.mojom" ]
@@ -1254,7 +1926,7 @@ diff --git a/chrome/browser/ui/webui/side_panel/read_anything/BUILD.gn b/chrome/
  # found in the LICENSE file.
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  source_set("read_anything") {
    sources = [
@@ -1266,7 +1938,7 @@ diff --git a/chrome/browser/ui/webui/side_panel/history/BUILD.gn b/chrome/browse
  # found in the LICENSE file.
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  source_set("history") {
    public = [ "history_side_panel_ui.h" ]
@@ -1278,7 +1950,7 @@ diff --git a/chrome/browser/ui/webui/side_panel/reading_list/BUILD.gn b/chrome/b
  import("//mojo/public/tools/bindings/mojom.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  mojom("mojo_bindings") {
    sources = [ "reading_list.mojom" ]
@@ -1290,10 +1962,22 @@ diff --git a/chrome/browser/ui/webui/side_panel/history_clusters/BUILD.gn b/chro
  # found in the LICENSE file.
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  source_set("history_clusters") {
    public = [ "history_clusters_side_panel_ui.h" ]
+diff --git a/chrome/browser/ui/webui/side_panel/customize_chrome/BUILD.gn b/chrome/browser/ui/webui/side_panel/customize_chrome/BUILD.gn
+--- a/chrome/browser/ui/webui/side_panel/customize_chrome/BUILD.gn
++++ b/chrome/browser/ui/webui/side_panel/customize_chrome/BUILD.gn
+@@ -5,7 +5,7 @@
+ import("//mojo/public/tools/bindings/mojom.gni")
+ import("//ui/webui/webui_features.gni")
+ 
+-assert(!is_android || enable_webui_ntp)
++assert((!is_android || enable_webui_ntp) || cef_content_only)
+ 
+ mojom("mojo_bindings") {
+   sources = [
 diff --git a/chrome/browser/ui/webui/side_panel/customize_chrome/wallpaper_search/BUILD.gn b/chrome/browser/ui/webui/side_panel/customize_chrome/wallpaper_search/BUILD.gn
 --- a/chrome/browser/ui/webui/side_panel/customize_chrome/wallpaper_search/BUILD.gn
 +++ b/chrome/browser/ui/webui/side_panel/customize_chrome/wallpaper_search/BUILD.gn
@@ -1302,7 +1986,7 @@ diff --git a/chrome/browser/ui/webui/side_panel/customize_chrome/wallpaper_searc
  import("//ui/webui/webui_features.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  source_set("wallpaper_search") {
    sources = [
@@ -1314,7 +1998,7 @@ diff --git a/chrome/browser/ui/webui/side_panel/customize_chrome/customize_toolb
  import("//ui/webui/webui_features.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  source_set("customize_toolbar") {
    sources = [ "customize_toolbar_handler.cc" ]
@@ -1326,7 +2010,7 @@ diff --git a/chrome/browser/ui/webui/side_panel/tabs_from_other_devices/BUILD.gn
  # found in the LICENSE file.
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  source_set("tabs_from_other_devices") {
    public = [ "tabs_from_other_devices_side_panel_ui.h" ]
@@ -1338,7 +2022,7 @@ diff --git a/chrome/browser/ui/webui/side_panel/bookmarks/BUILD.gn b/chrome/brow
  import("//mojo/public/tools/bindings/mojom.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  mojom("mojo_bindings") {
    sources = [ "bookmarks.mojom" ]
@@ -1350,7 +2034,7 @@ diff --git a/chrome/browser/ui/webui/inspect/BUILD.gn b/chrome/browser/ui/webui/
  # found in the LICENSE file.
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  source_set("inspect") {
    sources = [
@@ -1362,7 +2046,7 @@ diff --git a/chrome/browser/ui/webui/autofill_ml_internals/BUILD.gn b/chrome/bro
  # found in the LICENSE file.
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  source_set("autofill_ml_internals") {
    sources = [
@@ -1374,10 +2058,22 @@ diff --git a/chrome/browser/ui/webui/omnibox_everywhere/BUILD.gn b/chrome/browse
  # found in the LICENSE file.
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  if (is_win || is_mac) {
    source_set("unit_tests") {
+diff --git a/chrome/browser/ui/webui/omnibox_everywhere/mojom/BUILD.gn b/chrome/browser/ui/webui/omnibox_everywhere/mojom/BUILD.gn
+--- a/chrome/browser/ui/webui/omnibox_everywhere/mojom/BUILD.gn
++++ b/chrome/browser/ui/webui/omnibox_everywhere/mojom/BUILD.gn
+@@ -4,7 +4,7 @@
+ 
+ import("//mojo/public/tools/bindings/mojom.gni")
+ 
+-assert(!is_android && !is_ios)
++assert((!is_android && !is_ios) || cef_content_only)
+ 
+ mojom("mojo_bindings") {
+   sources = [ "omnibox_everywhere.mojom" ]
 diff --git a/chrome/browser/ui/webui/tracked_element/BUILD.gn b/chrome/browser/ui/webui/tracked_element/BUILD.gn
 --- a/chrome/browser/ui/webui/tracked_element/BUILD.gn
 +++ b/chrome/browser/ui/webui/tracked_element/BUILD.gn
@@ -1386,7 +2082,7 @@ diff --git a/chrome/browser/ui/webui/tracked_element/BUILD.gn b/chrome/browser/u
  import("//mojo/public/tools/bindings/mojom.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  source_set("browser_tests") {
    testonly = true
@@ -1398,7 +2094,7 @@ diff --git a/chrome/browser/ui/webui/color_pipeline_internals/BUILD.gn b/chrome/
  # found in the LICENSE file.
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  source_set("color_pipeline_internals") {
    sources = [
@@ -1410,7 +2106,7 @@ diff --git a/chrome/browser/ui/webui/on_device_internals/BUILD.gn b/chrome/brows
  import("//mojo/public/tools/bindings/mojom.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  mojom("mojom") {
    sources = [ "on_device_internals_page.mojom" ]
@@ -1422,10 +2118,22 @@ diff --git a/chrome/browser/ui/webui/critical_actions/BUILD.gn b/chrome/browser/
  import("//mojo/public/tools/bindings/mojom.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  static_library("critical_actions") {
    sources = [
+diff --git a/chrome/browser/ui/tabs/BUILD.gn b/chrome/browser/ui/tabs/BUILD.gn
+--- a/chrome/browser/ui/tabs/BUILD.gn
++++ b/chrome/browser/ui/tabs/BUILD.gn
+@@ -2,7 +2,7 @@
+ # Use of this source code is governed by a BSD-style license that can be
+ # found in the LICENSE file.
+ 
+-assert(is_win || is_mac || is_linux || is_chromeos || is_android)
++assert(is_win || is_mac || is_linux || is_chromeos || is_android || cef_content_only)
+ 
+ import("//chrome/common/features.gni")
+ import("//components/signin/features.gni")
 diff --git a/chrome/browser/ui/tabs/saved_tab_groups/BUILD.gn b/chrome/browser/ui/tabs/saved_tab_groups/BUILD.gn
 --- a/chrome/browser/ui/tabs/saved_tab_groups/BUILD.gn
 +++ b/chrome/browser/ui/tabs/saved_tab_groups/BUILD.gn
@@ -1438,6 +2146,18 @@ diff --git a/chrome/browser/ui/tabs/saved_tab_groups/BUILD.gn b/chrome/browser/u
  
  import("//chrome/common/features.gni")
  
+diff --git a/chrome/browser/ui/tabs/alert/BUILD.gn b/chrome/browser/ui/tabs/alert/BUILD.gn
+--- a/chrome/browser/ui/tabs/alert/BUILD.gn
++++ b/chrome/browser/ui/tabs/alert/BUILD.gn
+@@ -2,7 +2,7 @@
+ # Use of this source code is governed by a BSD-style license that can be
+ # found in the LICENSE file.
+ 
+-assert(is_win || is_mac || is_linux || is_chromeos || is_android)
++assert(is_win || is_mac || is_linux || is_chromeos || is_android || cef_content_only)
+ 
+ import("//chrome/common/features.gni")
+ 
 diff --git a/chrome/browser/device_api/BUILD.gn b/chrome/browser/device_api/BUILD.gn
 --- a/chrome/browser/device_api/BUILD.gn
 +++ b/chrome/browser/device_api/BUILD.gn
@@ -1446,7 +2166,7 @@ diff --git a/chrome/browser/device_api/BUILD.gn b/chrome/browser/device_api/BUIL
  # found in the LICENSE file.
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  source_set("device_api") {
    sources = [
@@ -1458,10 +2178,46 @@ diff --git a/chrome/browser/shortcuts/BUILD.gn b/chrome/browser/shortcuts/BUILD.
  import("//chrome/browser/buildflags.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  source_set("shortcuts") {
    public = [ "shortcut_icon_generator.h" ]
+diff --git a/chrome/browser/search_engines/BUILD.gn b/chrome/browser/search_engines/BUILD.gn
+--- a/chrome/browser/search_engines/BUILD.gn
++++ b/chrome/browser/search_engines/BUILD.gn
+@@ -5,7 +5,7 @@
+ import("//extensions/buildflags/buildflags.gni")
+ import("//rlz/buildflags/buildflags.gni")
+ 
+-assert(is_win || is_mac || is_linux || is_chromeos || is_android)
++assert(is_win || is_mac || is_linux || is_chromeos || is_android || cef_content_only)
+ 
+ source_set("search_engines") {
+   public = [
+diff --git a/chrome/browser/optimization_guide/BUILD.gn b/chrome/browser/optimization_guide/BUILD.gn
+--- a/chrome/browser/optimization_guide/BUILD.gn
++++ b/chrome/browser/optimization_guide/BUILD.gn
+@@ -2,7 +2,7 @@
+ # Use of this source code is governed by a BSD-style license that can be
+ # found in the LICENSE file.
+ 
+-assert(is_win || is_mac || is_linux || is_chromeos || is_android)
++assert(is_win || is_mac || is_linux || is_chromeos || is_android || cef_content_only)
+ 
+ source_set("optimization_guide") {
+   sources = [
+diff --git a/chrome/browser/reduce_accept_language/BUILD.gn b/chrome/browser/reduce_accept_language/BUILD.gn
+--- a/chrome/browser/reduce_accept_language/BUILD.gn
++++ b/chrome/browser/reduce_accept_language/BUILD.gn
+@@ -4,7 +4,7 @@
+ 
+ import("//chrome/common/features.gni")
+ 
+-assert(is_win || is_mac || is_linux || is_chromeos || is_android)
++assert(is_win || is_mac || is_linux || is_chromeos || is_android || cef_content_only)
+ 
+ source_set("reduce_accept_language") {
+   sources = [ "reduce_accept_language_factory.h" ]
 diff --git a/chrome/browser/background/omnibox_everywhere/BUILD.gn b/chrome/browser/background/omnibox_everywhere/BUILD.gn
 --- a/chrome/browser/background/omnibox_everywhere/BUILD.gn
 +++ b/chrome/browser/background/omnibox_everywhere/BUILD.gn
@@ -1470,7 +2226,7 @@ diff --git a/chrome/browser/background/omnibox_everywhere/BUILD.gn b/chrome/brow
  # found in the LICENSE file.
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  source_set("omnibox_everywhere") {
    public = [ "omnibox_everywhere_background_mode_manager.h" ]
@@ -1482,10 +2238,22 @@ diff --git a/chrome/browser/device_notifications/BUILD.gn b/chrome/browser/devic
  # found in the LICENSE file.
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  source_set("device_notifications") {
    sources = []
+diff --git a/chrome/browser/feedback/BUILD.gn b/chrome/browser/feedback/BUILD.gn
+--- a/chrome/browser/feedback/BUILD.gn
++++ b/chrome/browser/feedback/BUILD.gn
+@@ -4,7 +4,7 @@
+ 
+ import("//build/config/ui.gni")
+ 
+-assert(is_win || is_mac || is_linux || is_chromeos || is_android)
++assert(is_win || is_mac || is_linux || is_chromeos || is_android || cef_content_only)
+ 
+ source_set("feedback_enum") {
+   sources = [ "public/feedback_source.h" ]
 diff --git a/chrome/browser/sharing_hub/BUILD.gn b/chrome/browser/sharing_hub/BUILD.gn
 --- a/chrome/browser/sharing_hub/BUILD.gn
 +++ b/chrome/browser/sharing_hub/BUILD.gn
@@ -1498,6 +2266,30 @@ diff --git a/chrome/browser/sharing_hub/BUILD.gn b/chrome/browser/sharing_hub/BU
  
  source_set("sharing_hub") {
    sources = [
+diff --git a/chrome/browser/error_reporting/BUILD.gn b/chrome/browser/error_reporting/BUILD.gn
+--- a/chrome/browser/error_reporting/BUILD.gn
++++ b/chrome/browser/error_reporting/BUILD.gn
+@@ -2,7 +2,7 @@
+ # Use of this source code is governed by a BSD-style license that can be
+ # found in the LICENSE file.
+ 
+-assert(!is_android && !is_fuchsia)
++assert((!is_android && !is_fuchsia) || cef_content_only)
+ 
+ source_set("constants") {
+   sources = [
+diff --git a/chrome/browser/accessibility/tree_fixing/BUILD.gn b/chrome/browser/accessibility/tree_fixing/BUILD.gn
+--- a/chrome/browser/accessibility/tree_fixing/BUILD.gn
++++ b/chrome/browser/accessibility/tree_fixing/BUILD.gn
+@@ -4,7 +4,7 @@
+ 
+ import("//build/buildflag_header.gni")
+ 
+-assert(!is_android, "AXTreeFixingService does not run on Android.")
++assert((!is_android, "AXTreeFixingService does not run on Android.") || cef_content_only)
+ 
+ source_set("service") {
+   sources = [
 diff --git a/chrome/browser/accessibility/phrase_segmentation/BUILD.gn b/chrome/browser/accessibility/phrase_segmentation/BUILD.gn
 --- a/chrome/browser/accessibility/phrase_segmentation/BUILD.gn
 +++ b/chrome/browser/accessibility/phrase_segmentation/BUILD.gn
@@ -1506,7 +2298,7 @@ diff --git a/chrome/browser/accessibility/phrase_segmentation/BUILD.gn b/chrome/
  # found in the LICENSE file.
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  source_set("phrase_segmentation") {
    public = [
@@ -1518,7 +2310,7 @@ diff --git a/chrome/browser/accessibility/live_caption/BUILD.gn b/chrome/browser
  # found in the LICENSE file.
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  source_set("live_caption") {
    public = [
@@ -1530,7 +2322,7 @@ diff --git a/chrome/browser/selection/BUILD.gn b/chrome/browser/selection/BUILD.
  # found in the LICENSE file.
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  source_set("selection") {
    sources = [
@@ -1542,10 +2334,22 @@ diff --git a/chrome/browser/selection/mojom/BUILD.gn b/chrome/browser/selection/
  import("//mojo/public/tools/bindings/mojom.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  mojom("mojo_bindings") {
    sources = [ "action.mojom" ]
+diff --git a/chrome/browser/ttc/resources/BUILD.gn b/chrome/browser/ttc/resources/BUILD.gn
+--- a/chrome/browser/ttc/resources/BUILD.gn
++++ b/chrome/browser/ttc/resources/BUILD.gn
+@@ -5,7 +5,7 @@
+ import("//build/config/chrome_build.gni")
+ import("//ui/webui/resources/tools/build_webui.gni")
+ 
+-assert(is_win || is_mac || is_linux || is_chromeos || is_desktop_android)
++assert(is_win || is_mac || is_linux || is_chromeos || is_desktop_android || cef_content_only)
+ 
+ build_webui("build") {
+   grd_prefix = "ai_overlay_dialog_untrusted"
 diff --git a/chrome/browser/device_identity/BUILD.gn b/chrome/browser/device_identity/BUILD.gn
 --- a/chrome/browser/device_identity/BUILD.gn
 +++ b/chrome/browser/device_identity/BUILD.gn
@@ -1554,9 +2358,33 @@ diff --git a/chrome/browser/device_identity/BUILD.gn b/chrome/browser/device_ide
  # found in the LICENSE file.
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  source_set("device_identity") {
+   sources = [
+diff --git a/chrome/browser/hid/BUILD.gn b/chrome/browser/hid/BUILD.gn
+--- a/chrome/browser/hid/BUILD.gn
++++ b/chrome/browser/hid/BUILD.gn
+@@ -4,7 +4,7 @@
+ 
+ import("//extensions/buildflags/buildflags.gni")
+ 
+-assert(is_win || is_mac || is_linux || is_chromeos || is_android)
++assert(is_win || is_mac || is_linux || is_chromeos || is_android || cef_content_only)
+ 
+ source_set("hid") {
+   public = [
+diff --git a/chrome/browser/navigation_predictor/BUILD.gn b/chrome/browser/navigation_predictor/BUILD.gn
+--- a/chrome/browser/navigation_predictor/BUILD.gn
++++ b/chrome/browser/navigation_predictor/BUILD.gn
+@@ -3,7 +3,7 @@
+ # found in the LICENSE file.
+ import("//build/config/features.gni")
+ import("//net/features.gni")
+-assert(is_win || is_mac || is_linux || is_chromeos || is_android)
++assert(is_win || is_mac || is_linux || is_chromeos || is_android || cef_content_only)
+ 
+ source_set("navigation_predictor") {
    sources = [
 diff --git a/chrome/browser/apps/link_capturing/BUILD.gn b/chrome/browser/apps/link_capturing/BUILD.gn
 --- a/chrome/browser/apps/link_capturing/BUILD.gn
@@ -1566,7 +2394,7 @@ diff --git a/chrome/browser/apps/link_capturing/BUILD.gn b/chrome/browser/apps/l
  import("//extensions/buildflags/buildflags.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  source_set("link_capturing") {
    sources = [
@@ -1578,7 +2406,7 @@ diff --git a/chrome/browser/apps/app_service/BUILD.gn b/chrome/browser/apps/app_
  import("//extensions/buildflags/buildflags.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  source_set("app_service") {
    sources = [
@@ -1590,7 +2418,7 @@ diff --git a/chrome/browser/apps/app_service/app_icon/BUILD.gn b/chrome/browser/
  import("//extensions/buildflags/buildflags.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  source_set("app_icon") {
    sources = [
@@ -1602,10 +2430,22 @@ diff --git a/chrome/browser/apps/app_service/publishers/BUILD.gn b/chrome/browse
  import("//extensions/buildflags/buildflags.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  # Concrete implementation of Publisher interface.
  # Importantly this must not be depended on by app_service.
+diff --git a/chrome/browser/lookalikes/BUILD.gn b/chrome/browser/lookalikes/BUILD.gn
+--- a/chrome/browser/lookalikes/BUILD.gn
++++ b/chrome/browser/lookalikes/BUILD.gn
+@@ -2,7 +2,7 @@
+ # Use of this source code is governed by a BSD-style license that can be
+ # found in the LICENSE file.
+ 
+-assert(is_win || is_mac || is_linux || is_chromeos || is_android)
++assert(is_win || is_mac || is_linux || is_chromeos || is_android || cef_content_only)
+ 
+ source_set("lookalikes") {
+   sources = [
 diff --git a/chrome/browser/contextual_cueing/internals/BUILD.gn b/chrome/browser/contextual_cueing/internals/BUILD.gn
 --- a/chrome/browser/contextual_cueing/internals/BUILD.gn
 +++ b/chrome/browser/contextual_cueing/internals/BUILD.gn
@@ -1614,7 +2454,7 @@ diff --git a/chrome/browser/contextual_cueing/internals/BUILD.gn b/chrome/browse
  import("//mojo/public/tools/bindings/mojom.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  mojom("mojo_bindings") {
    sources = [ "contextual_cueing_internals.mojom" ]
@@ -1626,7 +2466,7 @@ diff --git a/chrome/browser/resources/signin/BUILD.gn b/chrome/browser/resources
  import("//ui/webui/resources/tools/build_webui.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  build_webui("build") {
    grd_prefix = "signin"
@@ -1638,10 +2478,22 @@ diff --git a/chrome/browser/resources/indigo/BUILD.gn b/chrome/browser/resources
  import("//ui/webui/resources/tools/build_webui.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  build_webui("build") {
    grd_prefix = "indigo"
+diff --git a/chrome/browser/resources/settings/BUILD.gn b/chrome/browser/resources/settings/BUILD.gn
+--- a/chrome/browser/resources/settings/BUILD.gn
++++ b/chrome/browser/resources/settings/BUILD.gn
+@@ -6,7 +6,7 @@
+ import("//crypto/features.gni")
+ import("//ui/webui/resources/tools/build_webui.gni")
+ 
+-assert(!is_android, "Android does not use these settings")
++assert((!is_android, "Android does not use these settings") || cef_content_only)
+ 
+ build_webui("build") {
+   grd_prefix = "settings"
 diff --git a/chrome/browser/resources/tab_group_shared/BUILD.gn b/chrome/browser/resources/tab_group_shared/BUILD.gn
 --- a/chrome/browser/resources/tab_group_shared/BUILD.gn
 +++ b/chrome/browser/resources/tab_group_shared/BUILD.gn
@@ -1650,7 +2502,7 @@ diff --git a/chrome/browser/resources/tab_group_shared/BUILD.gn b/chrome/browser
  import("//ui/webui/resources/tools/build_webui.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  build_webui("build") {
    grd_prefix = "tab_group_shared"
@@ -1662,7 +2514,7 @@ diff --git a/chrome/browser/resources/about_sys/BUILD.gn b/chrome/browser/resour
  import("//ui/webui/resources/tools/build_webui.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  build_webui("build") {
    grd_prefix = "about_sys"
@@ -1674,7 +2526,7 @@ diff --git a/chrome/browser/resources/search_engine_choice/BUILD.gn b/chrome/bro
  import("//ui/webui/resources/tools/build_webui.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  build_webui("build") {
    grd_prefix = "search_engine_choice"
@@ -1686,7 +2538,7 @@ diff --git a/chrome/browser/resources/downloads/BUILD.gn b/chrome/browser/resour
  import("//ui/webui/resources/tools/build_webui.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  build_webui("build") {
    grd_prefix = "downloads"
@@ -1698,7 +2550,7 @@ diff --git a/chrome/browser/resources/webui_toolbar/BUILD.gn b/chrome/browser/re
  import("//ui/webui/webui_features.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  build_webui("build") {
    grd_prefix = "webui_toolbar"
@@ -1710,7 +2562,7 @@ diff --git a/chrome/browser/resources/webnn_internals/BUILD.gn b/chrome/browser/
  import("//ui/webui/resources/tools/build_webui.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  build_webui("build") {
    grd_prefix = "webnn_internals"
@@ -1722,7 +2574,7 @@ diff --git a/chrome/browser/resources/multistep_filter_internals/BUILD.gn b/chro
  import("//ui/webui/resources/tools/build_webui.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  build_webui("build") {
    grd_prefix = "multistep_filter_internals"
@@ -1734,7 +2586,7 @@ diff --git a/chrome/browser/resources/support_tool/BUILD.gn b/chrome/browser/res
  import("//ui/webui/resources/tools/build_webui.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  build_webui("build") {
    grd_prefix = "support_tool"
@@ -1746,7 +2598,7 @@ diff --git a/chrome/browser/resources/webui_toolbar_shared/BUILD.gn b/chrome/bro
  import("//ui/webui/webui_features.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  build_webui("build") {
    grd_prefix = "webui_toolbar_shared"
@@ -1758,7 +2610,7 @@ diff --git a/chrome/browser/resources/profile_internals/BUILD.gn b/chrome/browse
  import("//ui/webui/resources/tools/build_webui.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  build_webui("build") {
    grd_prefix = "profile_internals"
@@ -1770,7 +2622,7 @@ diff --git a/chrome/browser/resources/drive_picker_host/BUILD.gn b/chrome/browse
  import("//ui/webui/resources/tools/build_webui.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  build_webui("build") {
    grd_prefix = "drive_picker_host"
@@ -1782,7 +2634,7 @@ diff --git a/chrome/browser/resources/drive_picker_host/untrusted/BUILD.gn b/chr
  import("//ui/webui/resources/tools/build_webui.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  build_webui("build") {
    grd_prefix = "drive_picker_host_untrusted"
@@ -1794,7 +2646,7 @@ diff --git a/chrome/browser/resources/settings_shared/BUILD.gn b/chrome/browser/
  import("//ui/webui/resources/tools/build_webui.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  build_webui("build") {
    grd_prefix = "settings_shared"
@@ -1806,10 +2658,22 @@ diff --git a/chrome/browser/resources/iwa_dev/BUILD.gn b/chrome/browser/resource
  import("//ui/webui/resources/tools/build_webui.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  build_webui("build") {
    grd_prefix = "iwa_dev"
+diff --git a/chrome/browser/resources/discards/BUILD.gn b/chrome/browser/resources/discards/BUILD.gn
+--- a/chrome/browser/resources/discards/BUILD.gn
++++ b/chrome/browser/resources/discards/BUILD.gn
+@@ -5,7 +5,7 @@
+ import("//ui/webui/resources/tools/build_webui.gni")
+ import("//ui/webui/resources/tools/generate_grd.gni")
+ 
+-assert(!is_android || is_desktop_android)
++assert((!is_android || is_desktop_android) || cef_content_only)
+ 
+ build_webui("build") {
+   grd_prefix = "discards"
 diff --git a/chrome/browser/resources/feedback/BUILD.gn b/chrome/browser/resources/feedback/BUILD.gn
 --- a/chrome/browser/resources/feedback/BUILD.gn
 +++ b/chrome/browser/resources/feedback/BUILD.gn
@@ -1818,7 +2682,7 @@ diff --git a/chrome/browser/resources/feedback/BUILD.gn b/chrome/browser/resourc
  import("//ui/webui/resources/tools/build_webui.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  build_webui("build") {
    grd_prefix = "feedback"
@@ -1830,7 +2694,7 @@ diff --git a/chrome/browser/resources/indigo_internals/BUILD.gn b/chrome/browser
  import("//ui/webui/resources/tools/build_webui.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  build_webui("build") {
    grd_prefix = "indigo_internals"
@@ -1842,10 +2706,22 @@ diff --git a/chrome/browser/resources/webui_browser/BUILD.gn b/chrome/browser/re
  import("//ui/webui/resources/tools/build_webui.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  build_webui("build") {
    grd_prefix = "webui_browser"
+diff --git a/chrome/browser/resources/omnibox_popup/BUILD.gn b/chrome/browser/resources/omnibox_popup/BUILD.gn
+--- a/chrome/browser/resources/omnibox_popup/BUILD.gn
++++ b/chrome/browser/resources/omnibox_popup/BUILD.gn
+@@ -4,7 +4,7 @@
+ 
+ import("//ui/webui/resources/tools/build_webui.gni")
+ 
+-assert(!is_android && !is_ios)
++assert((!is_android && !is_ios) || cef_content_only)
+ 
+ build_webui("build") {
+   grd_prefix = "omnibox_popup"
 diff --git a/chrome/browser/resources/new_tab_footer/BUILD.gn b/chrome/browser/resources/new_tab_footer/BUILD.gn
 --- a/chrome/browser/resources/new_tab_footer/BUILD.gn
 +++ b/chrome/browser/resources/new_tab_footer/BUILD.gn
@@ -1854,7 +2730,7 @@ diff --git a/chrome/browser/resources/new_tab_footer/BUILD.gn b/chrome/browser/r
  import("//ui/webui/resources/tools/build_webui.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  build_webui("build") {
    grd_prefix = "new_tab_footer"
@@ -1866,10 +2742,22 @@ diff --git a/chrome/browser/resources/key_value_pair_viewer_shared/BUILD.gn b/ch
  import("//ui/webui/resources/tools/build_webui.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  build_webui("build") {
    grd_prefix = "key_value_pair_viewer_shared"
+diff --git a/chrome/browser/resources/access_code_cast/BUILD.gn b/chrome/browser/resources/access_code_cast/BUILD.gn
+--- a/chrome/browser/resources/access_code_cast/BUILD.gn
++++ b/chrome/browser/resources/access_code_cast/BUILD.gn
+@@ -4,7 +4,7 @@
+ 
+ import("//ui/webui/resources/tools/build_webui.gni")
+ 
+-assert(!is_android, "access_code_cast is not for android.")
++assert((!is_android, "access_code_cast is not for android.") || cef_content_only)
+ 
+ build_webui("build") {
+   grd_prefix = "access_code_cast"
 diff --git a/chrome/browser/resources/organizer_panel/BUILD.gn b/chrome/browser/resources/organizer_panel/BUILD.gn
 --- a/chrome/browser/resources/organizer_panel/BUILD.gn
 +++ b/chrome/browser/resources/organizer_panel/BUILD.gn
@@ -1878,10 +2766,22 @@ diff --git a/chrome/browser/resources/organizer_panel/BUILD.gn b/chrome/browser/
  import("//ui/webui/resources/tools/build_webui.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  build_webui("build") {
    grd_prefix = "organizer_panel"
+diff --git a/chrome/browser/resources/side_panel/shared/BUILD.gn b/chrome/browser/resources/side_panel/shared/BUILD.gn
+--- a/chrome/browser/resources/side_panel/shared/BUILD.gn
++++ b/chrome/browser/resources/side_panel/shared/BUILD.gn
+@@ -5,7 +5,7 @@
+ import("//ui/webui/resources/tools/build_webui.gni")
+ import("//ui/webui/webui_features.gni")
+ 
+-assert(!is_android || enable_webui_ntp)
++assert((!is_android || enable_webui_ntp) || cef_content_only)
+ 
+ build_webui("build") {
+   grd_prefix = "side_panel_shared"
 diff --git a/chrome/browser/resources/side_panel/comments/BUILD.gn b/chrome/browser/resources/side_panel/comments/BUILD.gn
 --- a/chrome/browser/resources/side_panel/comments/BUILD.gn
 +++ b/chrome/browser/resources/side_panel/comments/BUILD.gn
@@ -1890,7 +2790,7 @@ diff --git a/chrome/browser/resources/side_panel/comments/BUILD.gn b/chrome/brow
  import("//ui/webui/resources/tools/build_webui.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  build_webui("build") {
    grd_prefix = "side_panel_comments"
@@ -1902,7 +2802,7 @@ diff --git a/chrome/browser/resources/side_panel/read_anything/BUILD.gn b/chrome
  import("//ui/webui/resources/tools/build_webui.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  build_webui("build") {
    grd_prefix = "side_panel_read_anything"
@@ -1914,7 +2814,7 @@ diff --git a/chrome/browser/resources/side_panel/history/BUILD.gn b/chrome/brows
  import("//ui/webui/resources/tools/build_webui.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  build_webui("build") {
    grd_prefix = "side_panel_history"
@@ -1926,7 +2826,7 @@ diff --git a/chrome/browser/resources/side_panel/reading_list/BUILD.gn b/chrome/
  import("//ui/webui/webui_features.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  build_webui("build") {
    grd_prefix = "side_panel_reading_list"
@@ -1938,7 +2838,7 @@ diff --git a/chrome/browser/resources/side_panel/history_clusters/BUILD.gn b/chr
  import("//ui/webui/resources/tools/build_webui.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  build_webui("build") {
    grd_prefix = "side_panel_history_clusters"
@@ -1950,10 +2850,34 @@ diff --git a/chrome/browser/resources/side_panel/commerce/BUILD.gn b/chrome/brow
  import("//ui/webui/resources/tools/build_webui.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  build_webui("build") {
    grd_prefix = "side_panel_commerce"
+diff --git a/chrome/browser/resources/side_panel/customize_chrome/BUILD.gn b/chrome/browser/resources/side_panel/customize_chrome/BUILD.gn
+--- a/chrome/browser/resources/side_panel/customize_chrome/BUILD.gn
++++ b/chrome/browser/resources/side_panel/customize_chrome/BUILD.gn
+@@ -5,7 +5,7 @@
+ import("//ui/webui/resources/tools/build_webui.gni")
+ import("//ui/webui/webui_features.gni")
+ 
+-assert(!is_android || enable_webui_ntp)
++assert((!is_android || enable_webui_ntp) || cef_content_only)
+ 
+ build_webui("build") {
+   grd_prefix = "side_panel_customize_chrome"
+diff --git a/chrome/browser/resources/side_panel/customize_chrome/icons/BUILD.gn b/chrome/browser/resources/side_panel/customize_chrome/icons/BUILD.gn
+--- a/chrome/browser/resources/side_panel/customize_chrome/icons/BUILD.gn
++++ b/chrome/browser/resources/side_panel/customize_chrome/icons/BUILD.gn
+@@ -5,7 +5,7 @@
+ import("//ui/webui/resources/tools/generate_grd.gni")
+ import("//ui/webui/webui_features.gni")
+ 
+-assert(!is_android || enable_webui_ntp)
++assert((!is_android || enable_webui_ntp) || cef_content_only)
+ 
+ generate_grd("build_grdp") {
+   grd_prefix = "side_panel_customize_chrome"
 diff --git a/chrome/browser/resources/side_panel/tabs_from_other_devices/BUILD.gn b/chrome/browser/resources/side_panel/tabs_from_other_devices/BUILD.gn
 --- a/chrome/browser/resources/side_panel/tabs_from_other_devices/BUILD.gn
 +++ b/chrome/browser/resources/side_panel/tabs_from_other_devices/BUILD.gn
@@ -1962,7 +2886,7 @@ diff --git a/chrome/browser/resources/side_panel/tabs_from_other_devices/BUILD.g
  import("//ui/webui/webui_features.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  build_webui("build") {
    grd_prefix = "side_panel_tabs_from_other_devices"
@@ -1974,7 +2898,7 @@ diff --git a/chrome/browser/resources/side_panel/bookmarks/BUILD.gn b/chrome/bro
  import("//ui/webui/webui_features.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  build_webui("build") {
    grd_prefix = "side_panel_bookmarks"
@@ -1986,7 +2910,7 @@ diff --git a/chrome/browser/resources/inspect/BUILD.gn b/chrome/browser/resource
  import("//ui/webui/resources/tools/build_webui.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  build_webui("build") {
    grd_prefix = "inspect"
@@ -1998,7 +2922,7 @@ diff --git a/chrome/browser/resources/autofill_ml_internals/BUILD.gn b/chrome/br
  import("//ui/webui/resources/tools/build_webui.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  build_webui("build") {
    grd_prefix = "autofill_ml_internals"
@@ -2010,7 +2934,7 @@ diff --git a/chrome/browser/resources/contextual_cueing/internals/BUILD.gn b/chr
  import("//ui/webui/resources/tools/build_webui.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  build_webui("build") {
    grd_prefix = "contextual_cueing_internals"
@@ -2022,7 +2946,7 @@ diff --git a/chrome/browser/resources/webui_gallery/BUILD.gn b/chrome/browser/re
  import("//ui/webui/resources/tools/build_webui.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  build_webui("build") {
    grd_prefix = "webui_gallery"
@@ -2034,10 +2958,22 @@ diff --git a/chrome/browser/resources/user_education_internals/BUILD.gn b/chrome
  import("//ui/webui/resources/tools/build_webui.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  build_webui("build") {
    grd_prefix = "user_education_internals"
+diff --git a/chrome/browser/resources/omnibox_everywhere/BUILD.gn b/chrome/browser/resources/omnibox_everywhere/BUILD.gn
+--- a/chrome/browser/resources/omnibox_everywhere/BUILD.gn
++++ b/chrome/browser/resources/omnibox_everywhere/BUILD.gn
+@@ -4,7 +4,7 @@
+ 
+ import("//ui/webui/resources/tools/build_webui.gni")
+ 
+-assert(!is_android && !is_ios)
++assert((!is_android && !is_ios) || cef_content_only)
+ 
+ build_webui("build") {
+   grd_prefix = "omnibox_everywhere"
 diff --git a/chrome/browser/resources/web_app_internals/BUILD.gn b/chrome/browser/resources/web_app_internals/BUILD.gn
 --- a/chrome/browser/resources/web_app_internals/BUILD.gn
 +++ b/chrome/browser/resources/web_app_internals/BUILD.gn
@@ -2046,7 +2982,7 @@ diff --git a/chrome/browser/resources/web_app_internals/BUILD.gn b/chrome/browse
  import("//ui/webui/resources/tools/build_webui.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  build_webui("build") {
    grd_prefix = "web_app_internals"
@@ -2058,7 +2994,7 @@ diff --git a/chrome/browser/resources/color_pipeline_internals/BUILD.gn b/chrome
  import("//ui/webui/resources/tools/build_webui.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  build_webui("build") {
    grd_prefix = "color_pipeline_internals"
@@ -2070,7 +3006,7 @@ diff --git a/chrome/browser/resources/on_device_internals/BUILD.gn b/chrome/brow
  import("//ui/webui/resources/tools/build_webui.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  build_webui("build") {
    grd_prefix = "on_device_internals"
@@ -2082,7 +3018,7 @@ diff --git a/chrome/browser/resources/lens/shared/BUILD.gn b/chrome/browser/reso
  import("//ui/webui/resources/tools/build_webui.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  build_webui("build") {
    grd_prefix = "lens_shared"
@@ -2094,7 +3030,7 @@ diff --git a/chrome/browser/resources/critical_actions/BUILD.gn b/chrome/browser
  import("//ui/webui/resources/tools/build_webui.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  build_webui("build") {
    grd_prefix = "critical_actions"
@@ -2106,7 +3042,7 @@ diff --git a/chrome/browser/resources/webui_js_error/BUILD.gn b/chrome/browser/r
  import("//ui/webui/webui_features.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  build_webui("build") {
    grd_prefix = "webui_js_error"
@@ -2118,7 +3054,7 @@ diff --git a/chrome/browser/resources/media_router/cast_feedback/BUILD.gn b/chro
  import("//ui/webui/resources/tools/build_webui.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  assert(is_chrome_branded)
  
  build_webui("build") {
@@ -2130,7 +3066,7 @@ diff --git a/chrome/browser/resources/media_router/internals/BUILD.gn b/chrome/b
  import("//ui/webui/resources/tools/build_webui.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  build_webui("build") {
    grd_prefix = "media_router_internals"
@@ -2142,10 +3078,82 @@ diff --git a/chrome/browser/child_module/BUILD.gn b/chrome/browser/child_module/
  # found in the LICENSE file.
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  source_set("child_module") {
    public = [
+diff --git a/chrome/browser/media/router/discovery/BUILD.gn b/chrome/browser/media/router/discovery/BUILD.gn
+--- a/chrome/browser/media/router/discovery/BUILD.gn
++++ b/chrome/browser/media/router/discovery/BUILD.gn
+@@ -4,7 +4,7 @@
+ 
+ import("//build/config/chrome_build.gni")
+ 
+-assert(!is_android || is_desktop_android, "Not supported on mobile")
++assert((!is_android || is_desktop_android, "Not supported on mobile") || cef_content_only)
+ assert(!is_fuchsia, "Fuchsia shouldn't use anything in //chrome")
+ 
+ static_library("discovery") {
+diff --git a/chrome/browser/ai/BUILD.gn b/chrome/browser/ai/BUILD.gn
+--- a/chrome/browser/ai/BUILD.gn
++++ b/chrome/browser/ai/BUILD.gn
+@@ -7,7 +7,7 @@
+ import("//pdf/features.gni")
+ 
+ assert(build_with_model_execution)
+-assert(is_win || is_mac || is_linux || is_chromeos || is_android)
++assert(is_win || is_mac || is_linux || is_chromeos || is_android || cef_content_only)
+ 
+ source_set("ai") {
+   sources = [
+diff --git a/chrome/browser/picture_in_picture/BUILD.gn b/chrome/browser/picture_in_picture/BUILD.gn
+--- a/chrome/browser/picture_in_picture/BUILD.gn
++++ b/chrome/browser/picture_in_picture/BUILD.gn
+@@ -4,7 +4,7 @@
+ 
+ import("//chrome/common/features.gni")
+ 
+-assert(is_win || is_mac || is_linux || is_chromeos || is_android)
++assert(is_win || is_mac || is_linux || is_chromeos || is_android || cef_content_only)
+ 
+ # The window occlusion logic is currently for desktop only, and the
+ # WebContentsObserver-based implementation does not work on Linux
+diff --git a/chrome/browser/sync/BUILD.gn b/chrome/browser/sync/BUILD.gn
+--- a/chrome/browser/sync/BUILD.gn
++++ b/chrome/browser/sync/BUILD.gn
+@@ -7,7 +7,7 @@
+ import("//components/supervised_user/buildflags.gni")
+ import("//extensions/buildflags/buildflags.gni")
+ 
+-assert(is_win || is_mac || is_linux || is_chromeos || is_android)
++assert(is_win || is_mac || is_linux || is_chromeos || is_android || cef_content_only)
+ 
+ source_set("sync") {
+   sources = [
+diff --git a/chrome/browser/commerce/BUILD.gn b/chrome/browser/commerce/BUILD.gn
+--- a/chrome/browser/commerce/BUILD.gn
++++ b/chrome/browser/commerce/BUILD.gn
+@@ -2,7 +2,7 @@
+ # Use of this source code is governed by a BSD-style license that can be
+ # found in the LICENSE file.
+ 
+-assert(is_win || is_mac || is_linux || is_chromeos || is_android)
++assert(is_win || is_mac || is_linux || is_chromeos || is_android || cef_content_only)
+ 
+ source_set("commerce") {
+   sources = [ "shopping_service_factory.h" ]
+diff --git a/chrome/browser/file_system_access/BUILD.gn b/chrome/browser/file_system_access/BUILD.gn
+--- a/chrome/browser/file_system_access/BUILD.gn
++++ b/chrome/browser/file_system_access/BUILD.gn
+@@ -7,7 +7,7 @@
+ import("//components/safe_browsing/buildflags.gni")
+ import("//extensions/buildflags/buildflags.gni")
+ 
+-assert(is_win || is_mac || is_linux || is_chromeos || is_android)
++assert(is_win || is_mac || is_linux || is_chromeos || is_android || cef_content_only)
+ 
+ source_set("file_system_access") {
+   sources = [
 diff --git a/chrome/browser/importer/BUILD.gn b/chrome/browser/importer/BUILD.gn
 --- a/chrome/browser/importer/BUILD.gn
 +++ b/chrome/browser/importer/BUILD.gn
@@ -2158,6 +3166,18 @@ diff --git a/chrome/browser/importer/BUILD.gn b/chrome/browser/importer/BUILD.gn
  
  source_set("importer") {
    sources = [
+diff --git a/chrome/browser/lens/region_search/BUILD.gn b/chrome/browser/lens/region_search/BUILD.gn
+--- a/chrome/browser/lens/region_search/BUILD.gn
++++ b/chrome/browser/lens/region_search/BUILD.gn
+@@ -5,7 +5,7 @@
+ import("//components/lens/features.gni")
+ 
+ # Contained Lens dependencies are currently for desktop platforms only
+-assert(!is_android, "Lens Region Search is for desktop platforms only")
++assert((!is_android, "Lens Region Search is for desktop platforms only") || cef_content_only)
+ 
+ static_library("region_search") {
+   sources = [
 diff --git a/chrome/browser/password_manager/remote_actor/BUILD.gn b/chrome/browser/password_manager/remote_actor/BUILD.gn
 --- a/chrome/browser/password_manager/remote_actor/BUILD.gn
 +++ b/chrome/browser/password_manager/remote_actor/BUILD.gn
@@ -2166,10 +3186,34 @@ diff --git a/chrome/browser/password_manager/remote_actor/BUILD.gn b/chrome/brow
  # found in the LICENSE file.
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  source_set("remote_actor") {
    sources = [
+diff --git a/chrome/browser/search/BUILD.gn b/chrome/browser/search/BUILD.gn
+--- a/chrome/browser/search/BUILD.gn
++++ b/chrome/browser/search/BUILD.gn
+@@ -4,7 +4,7 @@
+ 
+ import("//ui/webui/webui_features.gni")
+ 
+-assert(is_win || is_mac || is_linux || is_chromeos || is_android)
++assert(is_win || is_mac || is_linux || is_chromeos || is_android || cef_content_only)
+ 
+ source_set("search") {
+   sources = [
+diff --git a/chrome/browser/search/background/BUILD.gn b/chrome/browser/search/background/BUILD.gn
+--- a/chrome/browser/search/background/BUILD.gn
++++ b/chrome/browser/search/background/BUILD.gn
+@@ -2,7 +2,7 @@
+ # Use of this source code is governed by a BSD-style license that can be
+ # found in the LICENSE file.
+ 
+-assert(is_win || is_mac || is_linux || is_chromeos || is_android)
++assert(is_win || is_mac || is_linux || is_chromeos || is_android || cef_content_only)
+ 
+ import("//third_party/protobuf/proto_library.gni")
+ 
 diff --git a/chrome/browser/metrics/critical_user_journeys/BUILD.gn b/chrome/browser/metrics/critical_user_journeys/BUILD.gn
 --- a/chrome/browser/metrics/critical_user_journeys/BUILD.gn
 +++ b/chrome/browser/metrics/critical_user_journeys/BUILD.gn
@@ -2178,7 +3222,7 @@ diff --git a/chrome/browser/metrics/critical_user_journeys/BUILD.gn b/chrome/bro
  # found in the LICENSE file.
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  source_set("critical_user_journeys") {
    sources = [
@@ -2190,10 +3234,46 @@ diff --git a/chrome/browser/metrics/desktop_session_duration/BUILD.gn b/chrome/b
  import("//build/config/chromeos/args.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  source_set("desktop_session_duration") {
    sources = [
+diff --git a/chrome/browser/preloading/prefetch/no_state_prefetch/BUILD.gn b/chrome/browser/preloading/prefetch/no_state_prefetch/BUILD.gn
+--- a/chrome/browser/preloading/prefetch/no_state_prefetch/BUILD.gn
++++ b/chrome/browser/preloading/prefetch/no_state_prefetch/BUILD.gn
+@@ -5,7 +5,7 @@
+ import("//components/safe_browsing/buildflags.gni")
+ import("//extensions/buildflags/buildflags.gni")
+ 
+-assert(is_win || is_mac || is_linux || is_chromeos || is_android)
++assert(is_win || is_mac || is_linux || is_chromeos || is_android || cef_content_only)
+ 
+ source_set("no_state_prefetch") {
+   sources = [
+diff --git a/chrome/browser/companion/text_finder/BUILD.gn b/chrome/browser/companion/text_finder/BUILD.gn
+--- a/chrome/browser/companion/text_finder/BUILD.gn
++++ b/chrome/browser/companion/text_finder/BUILD.gn
+@@ -2,7 +2,7 @@
+ # Use of this source code is governed by a BSD-style license that can be
+ # found in the LICENSE file.
+ 
+-assert(is_win || is_mac || is_linux || is_chromeos || is_android)
++assert(is_win || is_mac || is_linux || is_chromeos || is_android || cef_content_only)
+ 
+ source_set("text_finder") {
+   sources = [
+diff --git a/chrome/browser/memory/BUILD.gn b/chrome/browser/memory/BUILD.gn
+--- a/chrome/browser/memory/BUILD.gn
++++ b/chrome/browser/memory/BUILD.gn
+@@ -2,7 +2,7 @@
+ # Use of this source code is governed by a BSD-style license that can be
+ # found in the LICENSE file.
+ 
+-assert(is_win || is_mac || is_linux || is_chromeos || is_android)
++assert(is_win || is_mac || is_linux || is_chromeos || is_android || cef_content_only)
+ 
+ source_set("memory") {
+   public = [
 diff --git a/chrome/browser/direct_sockets/BUILD.gn b/chrome/browser/direct_sockets/BUILD.gn
 --- a/chrome/browser/direct_sockets/BUILD.gn
 +++ b/chrome/browser/direct_sockets/BUILD.gn
@@ -2202,10 +3282,58 @@ diff --git a/chrome/browser/direct_sockets/BUILD.gn b/chrome/browser/direct_sock
  import("//extensions/buildflags/buildflags.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  source_set("direct_sockets") {
    sources = [ "chrome_direct_sockets_delegate.h" ]
+diff --git a/chrome/browser/prefs/BUILD.gn b/chrome/browser/prefs/BUILD.gn
+--- a/chrome/browser/prefs/BUILD.gn
++++ b/chrome/browser/prefs/BUILD.gn
+@@ -10,7 +10,7 @@
+ import("//pdf/features.gni")
+ import("//rlz/buildflags/buildflags.gni")
+ 
+-assert(is_win || is_mac || is_linux || is_chromeos || is_android)
++assert(is_win || is_mac || is_linux || is_chromeos || is_android || cef_content_only)
+ 
+ source_set("prefs") {
+   sources = [
+diff --git a/chrome/browser/manta/BUILD.gn b/chrome/browser/manta/BUILD.gn
+--- a/chrome/browser/manta/BUILD.gn
++++ b/chrome/browser/manta/BUILD.gn
+@@ -2,7 +2,7 @@
+ # Use of this source code is governed by a BSD-style license that can be
+ # found in the LICENSE file.
+ 
+-assert(is_win || is_mac || is_linux || is_chromeos || is_android)
++assert(is_win || is_mac || is_linux || is_chromeos || is_android || cef_content_only)
+ 
+ source_set("manta") {
+   public = [ "manta_service_factory.h" ]
+diff --git a/chrome/browser/predictors/BUILD.gn b/chrome/browser/predictors/BUILD.gn
+--- a/chrome/browser/predictors/BUILD.gn
++++ b/chrome/browser/predictors/BUILD.gn
+@@ -5,7 +5,7 @@
+ import("//extensions/buildflags/buildflags.gni")
+ import("//third_party/protobuf/proto_library.gni")
+ 
+-assert(is_win || is_mac || is_linux || is_chromeos || is_android)
++assert(is_win || is_mac || is_linux || is_chromeos || is_android || cef_content_only)
+ 
+ proto_library("resource_prefetch_predictor_proto") {
+   sources = [ "resource_prefetch_predictor.proto" ]
+diff --git a/chrome/browser/predictors/lcp_critical_path_predictor/BUILD.gn b/chrome/browser/predictors/lcp_critical_path_predictor/BUILD.gn
+--- a/chrome/browser/predictors/lcp_critical_path_predictor/BUILD.gn
++++ b/chrome/browser/predictors/lcp_critical_path_predictor/BUILD.gn
+@@ -4,7 +4,7 @@
+ 
+ import("//third_party/protobuf/proto_library.gni")
+ 
+-assert(is_win || is_mac || is_linux || is_chromeos || is_android)
++assert(is_win || is_mac || is_linux || is_chromeos || is_android || cef_content_only)
+ 
+ proto_library("lcp_critical_path_predictor_proto") {
+   sources = [ "lcp_critical_path_predictor.proto" ]
 diff --git a/chrome/common/read_anything/BUILD.gn b/chrome/common/read_anything/BUILD.gn
 --- a/chrome/common/read_anything/BUILD.gn
 +++ b/chrome/common/read_anything/BUILD.gn
@@ -2214,7 +3342,7 @@ diff --git a/chrome/common/read_anything/BUILD.gn b/chrome/common/read_anything/
  import("//mojo/public/tools/bindings/mojom.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  mojom("mojo_bindings") {
    sources = [
@@ -2226,10 +3354,166 @@ diff --git a/ui/web_dialogs/BUILD.gn b/ui/web_dialogs/BUILD.gn
  # found in the LICENSE file.
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  component("web_dialogs") {
    sources = [
+diff --git a/ui/webui/resources/cr_components/most_visited/BUILD.gn b/ui/webui/resources/cr_components/most_visited/BUILD.gn
+--- a/ui/webui/resources/cr_components/most_visited/BUILD.gn
++++ b/ui/webui/resources/cr_components/most_visited/BUILD.gn
+@@ -6,7 +6,7 @@
+ import("//ui/webui/resources/tools/build_webui.gni")
+ import("//ui/webui/webui_features.gni")
+ 
+-assert((!is_android && !is_ios) || is_desktop_android)
++assert(((!is_android && !is_ios) || cef_content_only) || is_desktop_android)
+ 
+ mojom("mojom") {
+   sources = [ "most_visited.mojom" ]
+diff --git a/ui/webui/resources/cr_components/cr_shortcut_input/BUILD.gn b/ui/webui/resources/cr_components/cr_shortcut_input/BUILD.gn
+--- a/ui/webui/resources/cr_components/cr_shortcut_input/BUILD.gn
++++ b/ui/webui/resources/cr_components/cr_shortcut_input/BUILD.gn
+@@ -5,7 +5,7 @@
+ import("//ui/webui/resources/tools/build_webui.gni")
+ import("//ui/webui/webui_features.gni")
+ 
+-assert((!is_android && !is_ios) || is_desktop_android)
++assert(((!is_android && !is_ios) || cef_content_only) || is_desktop_android)
+ 
+ build_webui("build") {
+   grd_prefix = "cr_components_cr_shortcut_input"
+diff --git a/ui/webui/resources/cr_components/app_management/BUILD.gn b/ui/webui/resources/cr_components/app_management/BUILD.gn
+--- a/ui/webui/resources/cr_components/app_management/BUILD.gn
++++ b/ui/webui/resources/cr_components/app_management/BUILD.gn
+@@ -6,7 +6,7 @@
+ import("//ui/webui/resources/tools/build_webui.gni")
+ import("//ui/webui/webui_features.gni")
+ 
+-assert((!is_android && !is_ios) || is_desktop_android)
++assert(((!is_android && !is_ios) || cef_content_only) || is_desktop_android)
+ 
+ mojom("mojo_bindings") {
+   sources = [ "app_management.mojom" ]
+diff --git a/ui/webui/resources/cr_components/history/BUILD.gn b/ui/webui/resources/cr_components/history/BUILD.gn
+--- a/ui/webui/resources/cr_components/history/BUILD.gn
++++ b/ui/webui/resources/cr_components/history/BUILD.gn
+@@ -6,7 +6,7 @@
+ import("//ui/webui/resources/tools/build_webui.gni")
+ import("//ui/webui/webui_features.gni")
+ 
+-assert((!is_android && !is_ios) || is_desktop_android)
++assert(((!is_android && !is_ios) || cef_content_only) || is_desktop_android)
+ 
+ mojom("mojo_bindings") {
+   sources = [
+diff --git a/ui/webui/resources/cr_components/managed_dialog/BUILD.gn b/ui/webui/resources/cr_components/managed_dialog/BUILD.gn
+--- a/ui/webui/resources/cr_components/managed_dialog/BUILD.gn
++++ b/ui/webui/resources/cr_components/managed_dialog/BUILD.gn
+@@ -5,7 +5,7 @@
+ import("//ui/webui/resources/tools/build_webui.gni")
+ import("//ui/webui/webui_features.gni")
+ 
+-assert((!is_android && !is_ios) || is_desktop_android)
++assert(((!is_android && !is_ios) || cef_content_only) || is_desktop_android)
+ 
+ build_webui("build") {
+   grd_prefix = "cr_components_managed_dialog"
+diff --git a/ui/webui/resources/cr_components/history_embeddings/BUILD.gn b/ui/webui/resources/cr_components/history_embeddings/BUILD.gn
+--- a/ui/webui/resources/cr_components/history_embeddings/BUILD.gn
++++ b/ui/webui/resources/cr_components/history_embeddings/BUILD.gn
+@@ -6,7 +6,7 @@
+ import("//ui/webui/resources/tools/build_webui.gni")
+ import("//ui/webui/webui_features.gni")
+ 
+-assert(!is_android || is_desktop_android)
++assert((!is_android || is_desktop_android) || cef_content_only)
+ 
+ mojom("mojo_bindings") {
+   sources = [ "history_embeddings.mojom" ]
+diff --git a/ui/webui/resources/cr_components/color_change_listener/BUILD.gn b/ui/webui/resources/cr_components/color_change_listener/BUILD.gn
+--- a/ui/webui/resources/cr_components/color_change_listener/BUILD.gn
++++ b/ui/webui/resources/cr_components/color_change_listener/BUILD.gn
+@@ -7,7 +7,7 @@
+ import("//ui/webui/resources/tools/build_webui.gni")
+ import("//ui/webui/webui_features.gni")
+ 
+-assert((!is_android && !is_ios) || is_desktop_android)
++assert(((!is_android && !is_ios) || cef_content_only) || is_desktop_android)
+ 
+ mojom("mojom") {
+   sources = [ "color_change_listener.mojom" ]
+diff --git a/ui/webui/resources/cr_components/customize_color_scheme_mode/BUILD.gn b/ui/webui/resources/cr_components/customize_color_scheme_mode/BUILD.gn
+--- a/ui/webui/resources/cr_components/customize_color_scheme_mode/BUILD.gn
++++ b/ui/webui/resources/cr_components/customize_color_scheme_mode/BUILD.gn
+@@ -6,7 +6,7 @@
+ import("//ui/webui/resources/tools/build_webui.gni")
+ import("//ui/webui/webui_features.gni")
+ 
+-assert((!is_android && !is_ios) || is_desktop_android)
++assert(((!is_android && !is_ios) || cef_content_only) || is_desktop_android)
+ 
+ mojom("mojom") {
+   sources = [ "customize_color_scheme_mode.mojom" ]
+diff --git a/ui/webui/resources/cr_components/managed_footnote/BUILD.gn b/ui/webui/resources/cr_components/managed_footnote/BUILD.gn
+--- a/ui/webui/resources/cr_components/managed_footnote/BUILD.gn
++++ b/ui/webui/resources/cr_components/managed_footnote/BUILD.gn
+@@ -5,7 +5,7 @@
+ import("//ui/webui/resources/tools/build_webui.gni")
+ import("//ui/webui/webui_features.gni")
+ 
+-assert((!is_android && !is_ios) || is_desktop_android)
++assert(((!is_android && !is_ios) || cef_content_only) || is_desktop_android)
+ 
+ build_webui("build") {
+   grd_prefix = "cr_components_managed_footnote"
+diff --git a/ui/webui/resources/cr_components/theme_color_picker/BUILD.gn b/ui/webui/resources/cr_components/theme_color_picker/BUILD.gn
+--- a/ui/webui/resources/cr_components/theme_color_picker/BUILD.gn
++++ b/ui/webui/resources/cr_components/theme_color_picker/BUILD.gn
+@@ -6,7 +6,7 @@
+ import("//ui/webui/resources/tools/build_webui.gni")
+ import("//ui/webui/webui_features.gni")
+ 
+-assert((!is_android && !is_ios) || is_desktop_android)
++assert(((!is_android && !is_ios) || cef_content_only) || is_desktop_android)
+ 
+ mojom("mojom") {
+   sources = [ "theme_color_picker.mojom" ]
+diff --git a/ui/webui/resources/cr_components/history_clusters/BUILD.gn b/ui/webui/resources/cr_components/history_clusters/BUILD.gn
+--- a/ui/webui/resources/cr_components/history_clusters/BUILD.gn
++++ b/ui/webui/resources/cr_components/history_clusters/BUILD.gn
+@@ -6,7 +6,7 @@
+ import("//ui/webui/resources/tools/build_webui.gni")
+ import("//ui/webui/webui_features.gni")
+ 
+-assert(!is_android || is_desktop_android)
++assert((!is_android || is_desktop_android) || cef_content_only)
+ 
+ mojom("mojo_bindings") {
+   sources = [ "history_clusters.mojom" ]
+diff --git a/ui/webui/resources/cr_components/page_image_service/BUILD.gn b/ui/webui/resources/cr_components/page_image_service/BUILD.gn
+--- a/ui/webui/resources/cr_components/page_image_service/BUILD.gn
++++ b/ui/webui/resources/cr_components/page_image_service/BUILD.gn
+@@ -5,7 +5,7 @@
+ import("//ui/webui/resources/tools/build_webui.gni")
+ import("//ui/webui/webui_features.gni")
+ 
+-assert((!is_android && !is_ios) || is_desktop_android)
++assert(((!is_android && !is_ios) || cef_content_only) || is_desktop_android)
+ 
+ build_webui("build") {
+   grd_prefix = "cr_components_page_image_service"
+diff --git a/ui/webui/resources/cr_components/cr_lottie/BUILD.gn b/ui/webui/resources/cr_components/cr_lottie/BUILD.gn
+--- a/ui/webui/resources/cr_components/cr_lottie/BUILD.gn
++++ b/ui/webui/resources/cr_components/cr_lottie/BUILD.gn
+@@ -5,7 +5,7 @@
+ import("//ui/webui/resources/tools/build_webui.gni")
+ import("//ui/webui/webui_features.gni")
+ 
+-assert((!is_android && !is_ios) || is_desktop_android)
++assert(((!is_android && !is_ios) || cef_content_only) || is_desktop_android)
+ 
+ build_webui("build") {
+   grd_prefix = "cr_components_cr_lottie"
 diff --git a/content/browser/tracing/BUILD.gn b/content/browser/tracing/BUILD.gn
 --- a/content/browser/tracing/BUILD.gn
 +++ b/content/browser/tracing/BUILD.gn
@@ -2238,10 +3522,22 @@ diff --git a/content/browser/tracing/BUILD.gn b/content/browser/tracing/BUILD.gn
  import("//ui/webui/resources/tools/generate_grd.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  # The script just writes filename with no dirs to the .grd, so we always need
  # this file to be in the same directory as the inputs.
+diff --git a/apps/BUILD.gn b/apps/BUILD.gn
+--- a/apps/BUILD.gn
++++ b/apps/BUILD.gn
+@@ -5,7 +5,7 @@
+ import("//build/config/ui.gni")
+ import("//extensions/buildflags/buildflags.gni")
+ 
+-assert(!is_android && !is_ios)
++assert((!is_android && !is_ios) || cef_content_only)
+ assert(enable_platform_apps,
+        "Cannot depend on platform apps because enable_platform_apps=false.")
+ 
 diff --git a/components/record_replay/content/renderer/BUILD.gn b/components/record_replay/content/renderer/BUILD.gn
 --- a/components/record_replay/content/renderer/BUILD.gn
 +++ b/components/record_replay/content/renderer/BUILD.gn
@@ -2262,9 +3558,21 @@ diff --git a/components/fcm/engine/BUILD.gn b/components/fcm/engine/BUILD.gn
  # found in the LICENSE file.
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  static_library("engine") {
+   sources = [
+diff --git a/components/web_modal/BUILD.gn b/components/web_modal/BUILD.gn
+--- a/components/web_modal/BUILD.gn
++++ b/components/web_modal/BUILD.gn
+@@ -2,7 +2,7 @@
+ # Use of this source code is governed by a BSD-style license that can be
+ # found in the LICENSE file.
+ 
+-assert(!is_android && !is_ios)
++assert((!is_android && !is_ios) || cef_content_only)
+ 
+ component("web_modal") {
    sources = [
 diff --git a/components/soda/BUILD.gn b/components/soda/BUILD.gn
 --- a/components/soda/BUILD.gn
@@ -2274,7 +3582,7 @@ diff --git a/components/soda/BUILD.gn b/components/soda/BUILD.gn
  import("//components/soda/buildflags.gni")
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  buildflag_header("buildflags") {
    header = "buildflags.h"
@@ -2286,7 +3594,7 @@ diff --git a/components/keep_alive_registry/BUILD.gn b/components/keep_alive_reg
  # found in the LICENSE file.
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  source_set("keep_alive_registry") {
    sources = [
@@ -2298,10 +3606,34 @@ diff --git a/components/app_icon_loader/BUILD.gn b/components/app_icon_loader/BU
  # found in the LICENSE file.
  
 -assert(!is_android)
-+assert(!is_android || cef_content_only)
++assert((!is_android) || cef_content_only)
  
  source_set("app_icon_loader") {
    public = [
+diff --git a/third_party/polymer/v3_0/BUILD.gn b/third_party/polymer/v3_0/BUILD.gn
+--- a/third_party/polymer/v3_0/BUILD.gn
++++ b/third_party/polymer/v3_0/BUILD.gn
+@@ -9,7 +9,7 @@
+ import("//ui/webui/resources/tools/minify_js.gni")
+ import("//ui/webui/webui_features.gni")
+ 
+-assert((!is_android && !is_ios) || enable_webui_ntp)
++assert(((!is_android && !is_ios) || cef_content_only) || enable_webui_ntp)
+ 
+ js_files = [
+   "iron-a11y-keys-behavior/iron-a11y-keys-behavior.js",
+diff --git a/third_party/lottie/BUILD.gn b/third_party/lottie/BUILD.gn
+--- a/third_party/lottie/BUILD.gn
++++ b/third_party/lottie/BUILD.gn
+@@ -6,7 +6,7 @@
+ import("//ui/webui/resources/tools/generate_grd.gni")
+ import("//ui/webui/webui_features.gni")
+ 
+-assert((!is_android && !is_ios) || enable_webui_ntp)
++assert(((!is_android && !is_ios) || cef_content_only) || enable_webui_ntp)
+ 
+ node("minify") {
+   script = "minify_lottie.py"
 diff --git a/chromecast/media/cma/backend/proxy/BUILD.gn b/chromecast/media/cma/backend/proxy/BUILD.gn
 --- a/chromecast/media/cma/backend/proxy/BUILD.gn
 +++ b/chromecast/media/cma/backend/proxy/BUILD.gn
@@ -2310,7 +3642,19 @@ diff --git a/chromecast/media/cma/backend/proxy/BUILD.gn b/chromecast/media/cma/
  if (!is_android) {
    cast_source_set("proxy") {
 -    assert(!is_android)
-+    assert(!is_android || cef_content_only)
++    assert((!is_android) || cef_content_only)
  
      sources = [
        "audio_channel_broker_impl.cc",
+diff --git a/headless/BUILD.gn b/headless/BUILD.gn
+--- a/headless/BUILD.gn
++++ b/headless/BUILD.gn
+@@ -17,7 +17,7 @@
+ import("//tools/grit/repack.gni")
+ import("//tools/v8_context_snapshot/v8_context_snapshot.gni")
+ 
+-assert(!is_ios && !is_android)
++assert((!is_ios && !is_android) || cef_content_only)
+ 
+ if (headless_enable_commands) {
+   assert(
