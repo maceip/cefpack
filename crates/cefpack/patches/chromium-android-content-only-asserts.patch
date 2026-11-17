@@ -30,7 +30,7 @@ diff --git a/chrome/test/data/webui/cr_components/BUILD.gn b/chrome/test/data/we
  import("../build_webui_tests.gni")
  
 -assert((!is_android && !is_ios) || is_desktop_android)
-+assert(((!is_android && !is_ios) || cef_content_only) || is_desktop_android)
++assert(((!is_android && !is_ios) || is_desktop_android) || cef_content_only)
  
  build_webui_tests("build") {
    cc_test_files = [
@@ -102,7 +102,7 @@ diff --git a/chrome/test/data/webui/cr_components/composebox/BUILD.gn b/chrome/t
  import("//ui/webui/webui_features.gni")
  
 -assert((!is_android && !is_ios) || enable_webui_contextual_tasks_composebox)
-+assert(((!is_android && !is_ios) || cef_content_only) || enable_webui_contextual_tasks_composebox)
++assert(((!is_android && !is_ios) || enable_webui_contextual_tasks_composebox) || cef_content_only)
  
  build_webui_tests("build") {
    cc_test_files = [
@@ -738,7 +738,7 @@ diff --git a/chrome/browser/ui/passwords/settings/BUILD.gn b/chrome/browser/ui/p
  # found in the LICENSE file.
  
 -assert(!is_android, "Password import/export file selection are desktop-only.")
-+assert((!is_android, "Password import/export file selection are desktop-only.") || cef_content_only)
++assert((!is_android) || cef_content_only, "Password import/export file selection are desktop-only.")
  
  source_set("settings") {
    sources = [
@@ -1062,7 +1062,7 @@ diff --git a/chrome/browser/ui/views/zoom/BUILD.gn b/chrome/browser/ui/views/zoo
  # found in the LICENSE file.
  
 -assert(!is_android, "Zoom Page actions are for desktop platforms only")
-+assert((!is_android, "Zoom Page actions are for desktop platforms only") || cef_content_only)
++assert((!is_android) || cef_content_only, "Zoom Page actions are for desktop platforms only")
  
  source_set("zoom") {
    sources = [ "zoom_view_controller.h" ]
@@ -1098,7 +1098,7 @@ diff --git a/chrome/browser/ui/views/webid/BUILD.gn b/chrome/browser/ui/views/we
  import("//build/config/ozone.gni")
  
 -assert(!is_android, "This is desktop code for fedcm.")
-+assert((!is_android, "This is desktop code for fedcm.") || cef_content_only)
++assert((!is_android) || cef_content_only, "This is desktop code for fedcm.")
  
  source_set("webid") {
    public = [
@@ -1266,7 +1266,7 @@ diff --git a/chrome/browser/ui/views/js_optimization/BUILD.gn b/chrome/browser/u
  # found in the LICENSE file.
  
 -assert(!is_android, "JS optimization actions are for desktop platforms only")
-+assert((!is_android, "JS optimization actions are for desktop platforms only") || cef_content_only)
++assert((!is_android) || cef_content_only, "JS optimization actions are for desktop platforms only")
  
  source_set("js_optimization") {
    sources = [
@@ -1278,7 +1278,7 @@ diff --git a/chrome/browser/ui/views/page_action/BUILD.gn b/chrome/browser/ui/vi
  # found in the LICENSE file.
  
 -assert(!is_android, "Page actions are for desktop platforms only")
-+assert((!is_android, "Page actions are for desktop platforms only") || cef_content_only)
++assert((!is_android) || cef_content_only, "Page actions are for desktop platforms only")
  
  source_set("page_action") {
    friend = [
@@ -1890,7 +1890,7 @@ diff --git a/chrome/browser/ui/webui/access_code_cast/BUILD.gn b/chrome/browser/
  import("//third_party/protobuf/proto_library.gni")
  
 -assert(!is_android, "AccessCodeCast is not for android.")
-+assert((!is_android, "AccessCodeCast is not for android.") || cef_content_only)
++assert((!is_android) || cef_content_only, "AccessCodeCast is not for android.")
  
  mojom("mojo_bindings") {
    sources = [ "access_code_cast.mojom" ]
@@ -2286,7 +2286,7 @@ diff --git a/chrome/browser/accessibility/tree_fixing/BUILD.gn b/chrome/browser/
  import("//build/buildflag_header.gni")
  
 -assert(!is_android, "AXTreeFixingService does not run on Android.")
-+assert((!is_android, "AXTreeFixingService does not run on Android.") || cef_content_only)
++assert((!is_android) || cef_content_only, "AXTreeFixingService does not run on Android.")
  
  source_set("service") {
    sources = [
@@ -2490,7 +2490,7 @@ diff --git a/chrome/browser/resources/settings/BUILD.gn b/chrome/browser/resourc
  import("//ui/webui/resources/tools/build_webui.gni")
  
 -assert(!is_android, "Android does not use these settings")
-+assert((!is_android, "Android does not use these settings") || cef_content_only)
++assert((!is_android) || cef_content_only, "Android does not use these settings")
  
  build_webui("build") {
    grd_prefix = "settings"
@@ -2754,7 +2754,7 @@ diff --git a/chrome/browser/resources/access_code_cast/BUILD.gn b/chrome/browser
  import("//ui/webui/resources/tools/build_webui.gni")
  
 -assert(!is_android, "access_code_cast is not for android.")
-+assert((!is_android, "access_code_cast is not for android.") || cef_content_only)
++assert((!is_android) || cef_content_only, "access_code_cast is not for android.")
  
  build_webui("build") {
    grd_prefix = "access_code_cast"
@@ -3090,7 +3090,7 @@ diff --git a/chrome/browser/media/router/discovery/BUILD.gn b/chrome/browser/med
  import("//build/config/chrome_build.gni")
  
 -assert(!is_android || is_desktop_android, "Not supported on mobile")
-+assert((!is_android || is_desktop_android, "Not supported on mobile") || cef_content_only)
++assert((!is_android || is_desktop_android) || cef_content_only, "Not supported on mobile")
  assert(!is_fuchsia, "Fuchsia shouldn't use anything in //chrome")
  
  static_library("discovery") {
@@ -3174,7 +3174,7 @@ diff --git a/chrome/browser/lens/region_search/BUILD.gn b/chrome/browser/lens/re
  
  # Contained Lens dependencies are currently for desktop platforms only
 -assert(!is_android, "Lens Region Search is for desktop platforms only")
-+assert((!is_android, "Lens Region Search is for desktop platforms only") || cef_content_only)
++assert((!is_android) || cef_content_only, "Lens Region Search is for desktop platforms only")
  
  static_library("region_search") {
    sources = [
@@ -3366,7 +3366,7 @@ diff --git a/ui/webui/resources/cr_components/most_visited/BUILD.gn b/ui/webui/r
  import("//ui/webui/webui_features.gni")
  
 -assert((!is_android && !is_ios) || is_desktop_android)
-+assert(((!is_android && !is_ios) || cef_content_only) || is_desktop_android)
++assert(((!is_android && !is_ios) || is_desktop_android) || cef_content_only)
  
  mojom("mojom") {
    sources = [ "most_visited.mojom" ]
@@ -3378,7 +3378,7 @@ diff --git a/ui/webui/resources/cr_components/cr_shortcut_input/BUILD.gn b/ui/we
  import("//ui/webui/webui_features.gni")
  
 -assert((!is_android && !is_ios) || is_desktop_android)
-+assert(((!is_android && !is_ios) || cef_content_only) || is_desktop_android)
++assert(((!is_android && !is_ios) || is_desktop_android) || cef_content_only)
  
  build_webui("build") {
    grd_prefix = "cr_components_cr_shortcut_input"
@@ -3390,7 +3390,7 @@ diff --git a/ui/webui/resources/cr_components/app_management/BUILD.gn b/ui/webui
  import("//ui/webui/webui_features.gni")
  
 -assert((!is_android && !is_ios) || is_desktop_android)
-+assert(((!is_android && !is_ios) || cef_content_only) || is_desktop_android)
++assert(((!is_android && !is_ios) || is_desktop_android) || cef_content_only)
  
  mojom("mojo_bindings") {
    sources = [ "app_management.mojom" ]
@@ -3402,7 +3402,7 @@ diff --git a/ui/webui/resources/cr_components/history/BUILD.gn b/ui/webui/resour
  import("//ui/webui/webui_features.gni")
  
 -assert((!is_android && !is_ios) || is_desktop_android)
-+assert(((!is_android && !is_ios) || cef_content_only) || is_desktop_android)
++assert(((!is_android && !is_ios) || is_desktop_android) || cef_content_only)
  
  mojom("mojo_bindings") {
    sources = [
@@ -3414,7 +3414,7 @@ diff --git a/ui/webui/resources/cr_components/managed_dialog/BUILD.gn b/ui/webui
  import("//ui/webui/webui_features.gni")
  
 -assert((!is_android && !is_ios) || is_desktop_android)
-+assert(((!is_android && !is_ios) || cef_content_only) || is_desktop_android)
++assert(((!is_android && !is_ios) || is_desktop_android) || cef_content_only)
  
  build_webui("build") {
    grd_prefix = "cr_components_managed_dialog"
@@ -3438,7 +3438,7 @@ diff --git a/ui/webui/resources/cr_components/color_change_listener/BUILD.gn b/u
  import("//ui/webui/webui_features.gni")
  
 -assert((!is_android && !is_ios) || is_desktop_android)
-+assert(((!is_android && !is_ios) || cef_content_only) || is_desktop_android)
++assert(((!is_android && !is_ios) || is_desktop_android) || cef_content_only)
  
  mojom("mojom") {
    sources = [ "color_change_listener.mojom" ]
@@ -3450,7 +3450,7 @@ diff --git a/ui/webui/resources/cr_components/customize_color_scheme_mode/BUILD.
  import("//ui/webui/webui_features.gni")
  
 -assert((!is_android && !is_ios) || is_desktop_android)
-+assert(((!is_android && !is_ios) || cef_content_only) || is_desktop_android)
++assert(((!is_android && !is_ios) || is_desktop_android) || cef_content_only)
  
  mojom("mojom") {
    sources = [ "customize_color_scheme_mode.mojom" ]
@@ -3462,7 +3462,7 @@ diff --git a/ui/webui/resources/cr_components/managed_footnote/BUILD.gn b/ui/web
  import("//ui/webui/webui_features.gni")
  
 -assert((!is_android && !is_ios) || is_desktop_android)
-+assert(((!is_android && !is_ios) || cef_content_only) || is_desktop_android)
++assert(((!is_android && !is_ios) || is_desktop_android) || cef_content_only)
  
  build_webui("build") {
    grd_prefix = "cr_components_managed_footnote"
@@ -3474,7 +3474,7 @@ diff --git a/ui/webui/resources/cr_components/theme_color_picker/BUILD.gn b/ui/w
  import("//ui/webui/webui_features.gni")
  
 -assert((!is_android && !is_ios) || is_desktop_android)
-+assert(((!is_android && !is_ios) || cef_content_only) || is_desktop_android)
++assert(((!is_android && !is_ios) || is_desktop_android) || cef_content_only)
  
  mojom("mojom") {
    sources = [ "theme_color_picker.mojom" ]
@@ -3498,7 +3498,7 @@ diff --git a/ui/webui/resources/cr_components/page_image_service/BUILD.gn b/ui/w
  import("//ui/webui/webui_features.gni")
  
 -assert((!is_android && !is_ios) || is_desktop_android)
-+assert(((!is_android && !is_ios) || cef_content_only) || is_desktop_android)
++assert(((!is_android && !is_ios) || is_desktop_android) || cef_content_only)
  
  build_webui("build") {
    grd_prefix = "cr_components_page_image_service"
@@ -3510,7 +3510,7 @@ diff --git a/ui/webui/resources/cr_components/cr_lottie/BUILD.gn b/ui/webui/reso
  import("//ui/webui/webui_features.gni")
  
 -assert((!is_android && !is_ios) || is_desktop_android)
-+assert(((!is_android && !is_ios) || cef_content_only) || is_desktop_android)
++assert(((!is_android && !is_ios) || is_desktop_android) || cef_content_only)
  
  build_webui("build") {
    grd_prefix = "cr_components_cr_lottie"
@@ -3618,7 +3618,7 @@ diff --git a/third_party/polymer/v3_0/BUILD.gn b/third_party/polymer/v3_0/BUILD.
  import("//ui/webui/webui_features.gni")
  
 -assert((!is_android && !is_ios) || enable_webui_ntp)
-+assert(((!is_android && !is_ios) || cef_content_only) || enable_webui_ntp)
++assert(((!is_android && !is_ios) || enable_webui_ntp) || cef_content_only)
  
  js_files = [
    "iron-a11y-keys-behavior/iron-a11y-keys-behavior.js",
@@ -3630,7 +3630,7 @@ diff --git a/third_party/lottie/BUILD.gn b/third_party/lottie/BUILD.gn
  import("//ui/webui/webui_features.gni")
  
 -assert((!is_android && !is_ios) || enable_webui_ntp)
-+assert(((!is_android && !is_ios) || cef_content_only) || enable_webui_ntp)
++assert(((!is_android && !is_ios) || enable_webui_ntp) || cef_content_only)
  
  node("minify") {
    script = "minify_lottie.py"

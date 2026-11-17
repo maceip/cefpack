@@ -95,25 +95,53 @@ def relaxed(line: str) -> str:
     start = line.find("assert(")
     if start < 0:
         return line
-    end = line.find(")", start)
-    if end < 0:
+    begin = start + len("assert(")
+    # The end of the assertion: the parenthesis that closes it, and not
+    # one that is inside the condition or inside the message.
+    depth = 1
+    end = begin
+    while end < len(line) and depth > 0:
+        if line[end] == "(":
+            depth += 1
+        elif line[end] == ")":
+            depth -= 1
+        end += 1
+    if depth != 0:
         return line
-    condition = line[start + len("assert(") : end]
+    inner = line[begin : end - 1]
+    # The condition of the assertion is what comes before the comma that
+    # separates it from the message, if it has one.
+    depth = 0
+    cut = None
+    for place, letter in enumerate(inner):
+        if letter in "([":
+            depth += 1
+        elif letter in ")]":
+            depth -= 1
+        elif letter == "," and depth == 0:
+            cut = place
+            break
+    condition = inner if cut is None else inner[:cut]
+    message = "" if cut is None else inner[cut:]
     if "!is_android" in condition:
         return (
             line[:start]
             + "assert(("
             + condition
-            + ") || cef_content_only)"
-            + line[end + 1 :]
+            + ") || cef_content_only"
+            + message
+            + ")"
+            + line[end:]
         )
     if THE_DESKTOP in condition:
         return (
             line[:start]
             + "assert("
             + condition
-            + " || cef_content_only)"
-            + line[end + 1 :]
+            + " || cef_content_only"
+            + message
+            + ")"
+            + line[end:]
         )
     return line
 
