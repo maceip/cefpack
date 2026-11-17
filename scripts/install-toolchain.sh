@@ -200,8 +200,12 @@ EOF
 # of the sources, because the container has to be empty for it.
 install_rust
 
+# The environment is written in both cases: the compiler of the service is
+# the first thing that is installed, and the file that points at it is what
+# the rest of the build reads.
+write_environment
+
 if [ "${RUST_ONLY}" = "1" ]; then
-  write_environment
   echo
   echo "done.  Run: source ${TOOLCHAIN}/env.sh"
   exit 0
