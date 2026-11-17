@@ -41,6 +41,7 @@ LIM="${TOOLS_DIR}/node_modules/.bin/lim"
 TIMEOUT="${CEF_BUILD_TIMEOUT:-21600}"
 MIN_CREDIT="${CEF_MIN_CREDIT:-0}"
 POLL="${CEF_POLL:-60}"
+
 # The command that runs in the sandbox.  The default is the build of the
 # engine; the override exists to run a part of it, or to test the round
 # trip without spending hours of credit.
@@ -69,13 +70,10 @@ echo "== 1. the account =="
 # balance is not always the thing that decides whether a build may run —
 # an account that is paid after the fact reports no minutes and still
 # accepts the sandbox — so the gate is off unless it is asked for.
-ACCOUNT="$(curl -sf -H "Authorization: Bearer ${LIM_API_KEY}" \
-  https://api.limrun.com/v1/whoami |
-  python3 -c 'import json,sys; o=json.load(sys.stdin)["organization"]; print("%s|%s|%s" % (o.get("displayName") or o["id"], o["id"], o["creditMinutes"]))')"
-ORG_NAME="${ACCOUNT%%|*}"
-REST="${ACCOUNT#*|}"
-ORG_ID="${REST%%|*}"
-CREDIT="${REST##*|}"
+ACCOUNT="$(curl -sf -H "Authorization: Bearer ${LIM_API_KEY}" https://api.limrun.com/v1/whoami | python3 "${HERE}/whoami.py")"
+ORG_NAME="$(printf '%s' "${ACCOUNT}" | cut -d'|' -f1)"
+ORG_ID="$(printf '%s' "${ACCOUNT}" | cut -d'|' -f2)"
+CREDIT="$(printf '%s' "${ACCOUNT}" | cut -d'|' -f3)"
 echo "the account is '${ORG_NAME}' (${ORG_ID}); it carries ${CREDIT} minutes of credit"
 if [ "${MIN_CREDIT}" -gt 0 ]; then
   echo "the build needs ${MIN_CREDIT} minutes of it"
@@ -92,12 +90,8 @@ echo "== 2. the sandbox =="
 # The hard timeout and the inactivity timeout are the same: the build runs
 # for hours, and a sandbox that is put to sleep halfway through it would
 # cost the whole checkout.  The hard timeout is what ends the run.
-CREATED="$("${LIM}" gradle create \
-  --display-name "cef-build-$(git rev-parse --short HEAD 2>/dev/null || echo local)" \
-  --hard-timeout "${TIMEOUT}s" \
-  --inactivity-timeout "${TIMEOUT}s" \
-  --reuse-if-exists \
-  --json)"
+SHORT="$(git rev-parse --short HEAD 2>/dev/null || echo local)"
+CREATED="$("${LIM}" gradle create --display-name "cef-build-${SHORT}" --hard-timeout "${TIMEOUT}s" --inactivity-timeout "${TIMEOUT}s" --reuse-if-exists --json)"
 # The answer of the CLI is {metadata, spec, status}; the id is in the
 # metadata.
 ID="$(printf '%s' "${CREATED}" | python3 -c 'import json,sys; print(json.load(sys.stdin)["metadata"]["id"])')"
@@ -114,11 +108,16 @@ trap cleanup EXIT
 echo "== 3. the sources are synced =="
 "${LIM}" gradle sync "${ROOT}" --id "${ID}"
 
+# The workspace of the sandbox carries the name of the directory that was
+# synced, and the build runs in it.
+WORKSPACE="/home/limrun/workspaces/$(basename "${ROOT}")"
+LOG="${WORKSPACE}/build.log"
+
 echo "== 4. the build is started =="
 # The build runs detached, and says in the log when it is done.  A command
 # that the platform ends takes the build with it; a detached one does not.
-"${LIM}" gradle run --id "${ID}" --no-sync --timeout 300 -- \
-  "cd '/home/limrun/workspaces/$(basename "${ROOT}")' && nohup bash -c '${BUILD_COMMAND}; echo \"CEF-BUILD-EXIT:\$?\"' > build.log 2>&1 &" || true
+START="cd ${WORKSPACE} && nohup bash -c '${BUILD_COMMAND}; echo CEF-BUILD-EXIT:\$?' > build.log 2>&1 &"
+"${LIM}" gradle run --id "${ID}" --no-sync --timeout 300 -- "${START}" || true
 echo "the build is running in the sandbox"
 
 echo "== 5. the log is read =="
@@ -126,29 +125,28 @@ echo "== 5. the log is read =="
 # platform ends is simply read again.
 DEADLINE=$(( $(date +%s) + TIMEOUT ))
 LAST=""
+DONE=0
 while [ "$(date +%s)" -lt "${DEADLINE}" ]; do
   sleep "${POLL}"
-  OUT="$(("${LIM}" gradle run --id "${ID}" --no-sync --timeout 180 -- \
-    "tail -n 5 '/home/limrun/workspaces/$(basename "${ROOT}")/build.log' 2>/dev/null || echo ''" 2>/dev/null || echo '')"
+  OUT="$("${LIM}" gradle run --id "${ID}" --no-sync --timeout 180 -- "tail -n 5 ${LOG} 2>/dev/null || true" 2>/dev/null || true)"
   if [ -n "${OUT}" ] && [ "${OUT}" != "${LAST}" ]; then
-    echo "${OUT}"
+    printf '%s\n' "${OUT}"
     LAST="${OUT}"
   fi
   case "${OUT}" in
     *CEF-BUILD-EXIT:0*)
-      echo "the build is done"
+      DONE=1
       break
       ;;
     *CEF-BUILD-EXIT:*)
       echo "the build failed" >&2
-      "${LIM}" gradle run --id "${ID}" --no-sync --timeout 180 -- \
-        "tail -n 40 '/home/limrun/workspaces/$(basename "${ROOT}")/build.log'" || true
+      "${LIM}" gradle run --id "${ID}" --no-sync --timeout 180 -- "tail -n 40 ${LOG}" || true
       exit 1
       ;;
   esac
 done
-if [ -z "${LAST}" ]; then
-  echo "the log of the build never came" >&2
+if [ "${DONE}" != "1" ]; then
+  echo "the build did not finish in ${TIMEOUT} seconds" >&2
   exit 1
 fi
 
