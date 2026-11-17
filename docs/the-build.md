@@ -36,14 +36,38 @@ at 1.3 TB of disk, 96 cores and 249 GB of memory — driven by
 1. reads the credit of the account and refuses to start a build that cannot
    finish (the account is billed by the minute);
 2. creates the sandbox and syncs this repository into it;
-3. runs the build in it;
-4. pulls the bundle back;
-5. deletes the sandbox, whatever happened.
+3. starts the build **detached** in it;
+4. reads the log of the build until it says that it is done;
+5. pulls the bundle back;
+6. deletes the sandbox, whatever happened.
+
+The build is detached because the platform ends a command that runs for a
+long time without saying anything, and a build that is killed with it is a
+build that is lost.  A detached build keeps running; its log is read from
+the outside.
 
 The toolchain is installed *in* the sandbox by
 `scripts/install-toolchain.sh`: the NDK, the Android SDK, `depot_tools` and,
 when the machine has no Rust of its own, a Rust of its own.  A sandbox has
 no `sudo`, so the installer never needs it.
+
+Two things about `depot_tools` were measured on the machine:
+
+* its wrappers for `gn` and `ninja` refuse to run until the bootstrap has
+  built the python they use.  The bootstrap is its own tool,
+  `ensure_bootstrap`; `update_depot_tools` **skips it** when
+  `DEPOT_TOOLS_UPDATE` is set, which is what the first version of the
+  installer did.  The error it caused is exact:
+
+  ```
+  python3_bin_reldir.txt not found.  need to initialize depot_tools by
+  running gclient, update_depot_tools or ensure_bootstrap.
+  ```
+
+* `gn` and `ninja` themselves are not in `depot_tools` any more: they come
+  with the checkout, into `src/buildtools/linux64`, and the service looks
+  in both places.
+
 
 ## 2. `fetch` — the sources
 
@@ -67,9 +91,19 @@ git clone --filter=blob:none --no-checkout https://github.com/chromiumembedded/c
 git fetch --depth 1 origin 6028375a4532fb89d23b58635f5c0d3a82c93959
 git checkout --detach 6028375a4532fb89d23b58635f5c0d3a82c93959
 
-# the dependencies, and the hook of CEF that patches the tree
-gclient sync --no-history --shallow --with_branch_heads --force --reset
+# the dependencies of both trees
+gclient sync --no-history --shallow --force --nohooks
 ```
+
+The flags of that command are not the defaults, and each of them was
+measured on a real sandbox:
+
+| flag | why |
+|---|---|
+| `--nohooks` | the hook of CEF configures and builds the **host** tree of Chromium, with the system libraries of a desktop Linux — cups among them.  The engine for Android needs none of that, and the hook fails on a machine that does not carry the packages of a desktop.  The work of the hook — the patches and the headers of the C API — is done by this service, with the tools that CEF ships. |
+| no `--reset` | a reset rewrites the index of a tree of twenty-nine gigabytes.  The measured cost of that rewrite was **17 GB of memory** in a container that allows 16 GB, and the process that fills it is killed.  The tree is already at the commit that the manifest pins. |
+| no `--with_branch_heads` | the branches of Chromium move; the build wants the commit. |
+| `--shallow --no-history` | the history of a tree that is pinned by a commit is not needed for anything. |
 
 The `.gclient` file that the last command reads names two solutions — `src`
 and `src/cef` — and says that neither is *managed* by `gclient`: the commits
@@ -81,6 +115,25 @@ Chromium side belongs to the manifest, next to the pin of CEF.
 
 The checkout is large — tens of gigabytes — and it takes hours.  This is the
 reason the build needs its own machine and its own cache.
+
+### The order of the build
+
+The order of the steps is a memory decision, and it is measured:
+
+```
+1. the compiler of the service      ~1 GB
+2. the checkout of the sources      the page cache of a 29 GB tree
+3. the toolchain                    the NDK, the SDK, depot_tools
+4. the engine                       gn gen, then ninja
+5. the headers, the bundle, the verdict, the FFI
+```
+
+The checkout comes second, while the container holds nothing but the
+compiler, because the page cache of the tree is what reaches the ceiling:
+the measured peak was 15.9 GB against a limit of 16 GB, with the processes
+themselves at 69 MB each.  The toolchain comes third, because the NDK and
+the SDK are three gigabytes of files that the checkout does not need.
+
 
 ## 3. `headers` — the C API
 

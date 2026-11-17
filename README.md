@@ -27,15 +27,16 @@ cefpack apk       the verdict on a built APK
 
 | | |
 |---|---|
-| the service | **done** — 54 tests, clippy clean, coverage tracked in CI |
+| the service | **done** — 59 tests, clippy clean, coverage tracked in CI |
 | the pin | **done** — CEF `6028375a4532fb89d23b58635f5c0d3a82c93959` (CEF 156.0.30, Chromium 156.0.8078.96), API version `15600` |
 | the headers | **done and run** — 393 headers, of which 161 are the generated C API headers |
 | the Rust FFI | **done and run** — generated for the bundled version, and the version is checked against the engine |
-| the engine | **not built yet** — no machine with the disk and the hours has run `cefpack build` yet |
+| the checkout | **done and run** — the tree of Chromium (29 GB) and the layer of CEF, at the pinned commits, with their dependencies |
+| the engine | **not built yet** — `cefpack build` runs on a sandbox of the account; the compile has not finished, and no engine exists |
 | the Android embedding | **not written yet** — see [`docs/the-embedding.md`](docs/the-embedding.md) |
 
-The build step is written, wired into CI and waiting for a machine. It has
-not produced an engine, and this document does not pretend otherwise.
+The build step is written, wired into CI and running. It has not produced
+an engine, and this document does not pretend otherwise.
 
 ## Why a service at all
 
