@@ -400,7 +400,22 @@ pub fn apply_chromium_patch(plan: &Plan) -> Result<()> {
         &["if (enable_remoting && target_os != \"android\" &&"],
     )?;
 
-    // The fifth patch of the service: the user interface of the desktop
+    // The fifth patch of the service: the root of the tree, which for a
+    // build of the content alone is a group with nothing in it.  It is
+    // applied after the patch of the target, because it is made against
+    // the file that the patch of the target leaves behind.
+    patch::apply_patch(
+        &chromium_dir,
+        patch::CHROMIUM_CONTENT_ONLY_ROOT_PATCH,
+        "content-only-root",
+    )?;
+    patch::verify(
+        &chromium_dir,
+        "BUILD.gn",
+        &["if (cef_content_only) {", "group(\"cef_content_only\")"],
+    )?;
+
+    // The sixth patch of the service: the user interface of the desktop
     // browser, which the build of the content *reads* — through the
     // resources of the browser — and which is not built for Android.
     patch::apply_patch(
@@ -477,15 +492,6 @@ pub fn apply_chromium_patch(plan: &Plan) -> Result<()> {
         &["if (!cef_content_only) {", "browser_widget"],
     )?;
 
-    // The root of the tree is patched first, with the other patches of the
-    // service: it is the patch that makes the rest of them matter — without
-    // it, GN loads the whole tree and every assertion of the desktop is
-    // read.
-    patch::verify(
-        &chromium_dir,
-        "BUILD.gn",
-        &["if (cef_content_only) {", "group(\"cef_content_only\")"],
-    )?;
     Ok(())
 }
 
