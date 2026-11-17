@@ -6,9 +6,9 @@
 # of Chromium is nothing but that.  A detached build keeps running, and its
 # log is read from the outside.
 #
-# The script brings the toolchain (the Rust compiler is already there — the
-# service was built with it), runs the build of the engine and packs the
-# bundle.  The last line of the log says whether it worked.
+# The script runs the build of the engine and packs the bundle.  The
+# toolchain comes with the build, in the order that the memory of the
+# container allows.  The last line of the log says whether it worked.
 
 set -euo pipefail
 
@@ -16,12 +16,18 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "${HERE}/.." && pwd)"
 cd "${ROOT}"
 
-TOOLCHAIN="${CEF_TOOLCHAIN_DIR:-${HOME}/trap-toolchain}"
-
-echo "== the toolchain =="
-"${HERE}/install-toolchain.sh" "${TOOLCHAIN}"
-# shellcheck disable=SC1091
-. "${TOOLCHAIN}/env.sh"
+# The toolchain is **not** installed here.
+#
+# The build of the engine is in the order that the memory of the container
+# allows, and that order is in `build-android.sh`: the Rust compiler, then
+# the checkout of the sources, then the NDK, the SDK and depot_tools.  The
+# checkout of the sources writes tens of gigabytes through the memory of the
+# container, and it has to happen while the container holds nothing but the
+# compiler of the service.  Installing the three gigabytes of the toolchain
+# before the checkout takes that headroom away from the one step that
+# needs it.
+#
+# The last line of the log says whether the build worked.
 
 echo "== the engine =="
 "${HERE}/build-android.sh"

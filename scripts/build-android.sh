@@ -38,6 +38,7 @@ export CEF_SOURCE_ROOT="${CEF_SOURCE_ROOT:-${ROOT}/cef-source}"
 export CEF_OUT_DIR="${CEF_OUT_DIR:-${ROOT}/cef-out}"
 export CEF_BUNDLE_DIR="${CEF_BUNDLE_DIR:-${ROOT}/cef-bundle}"
 export CEF_STAGING_DIR="${CEF_STAGING_DIR:-${ROOT}/cef-staging}"
+TOOLCHAIN="${CEF_TOOLCHAIN_DIR:-${HOME}/trap-toolchain}"
 
 # --- 1. the service --------------------------------------------------------
 # The service is built without the generator of the FFI: the generator
@@ -50,7 +51,6 @@ if [ -z "${CEFPACK}" ] || [ ! -x "${CEFPACK}" ]; then
   # Only the compiler of the service is installed before the checkout of
   # the sources: the NDK, the SDK and depot_tools are three gigabytes of
   # files that the container does not need for the checkout.
-  TOOLCHAIN="${CEF_TOOLCHAIN_DIR:-${HOME}/trap-toolchain}"
   "${HERE}/install-toolchain.sh" "${TOOLCHAIN}" --rust-only
   # shellcheck disable=SC1091
   . "${TOOLCHAIN}/env.sh"
