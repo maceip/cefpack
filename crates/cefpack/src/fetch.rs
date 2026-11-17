@@ -132,8 +132,16 @@ pub fn write_gclient(root: &Path, plan: &Plan) -> Result<()> {
     let path = root.join(".gclient");
     let chromium_repo = &plan.manifest.chromium.repo;
     let cef_repo = &plan.manifest.source.repo;
+    // `target_os` is what turns the checkout into an Android checkout.  The
+    // build of Chromium reads it, and without it the configuration of the
+    // Android target stops with:
+    //
+    //     ERROR at //build/config/android/config.gni:49:7: Assertion failed.
+    //         assert(checkout_android,
+    //     Missing native Android toolchain support.  |target_os| in your
+    //     .gclient configuration file ... must include "android".
     let content = format!(
-        "solutions = [\n  {{\n    'managed': False,\n    'name': 'src',\n    'url': '{chromium_repo}',\n    \
+        "target_os = ['android'],\n\nsolutions = [\n  {{\n    'managed': False,\n    'name': 'src',\n    'url': '{chromium_repo}',\n    \
          'custom_vars': {{\n      'checkout_pgo_profiles': False,\n      'source_tarball': False,\n      \
          'siso_version': 'latest',\n    }},\n    'custom_deps': {{}},\n    'deps_file': 'DEPS',\n    \
          'safesync_url': '',\n  }},\n  {{\n    'managed': False,\n    'name': 'src/cef',\n    \
@@ -389,6 +397,12 @@ mod tests {
         assert!(
             text.contains("'deps_file': 'DEPS'"),
             "the solutions read the DEPS files"
+        );
+        assert!(
+            text.contains("target_os = ['android']"),
+            "the checkout is an Android checkout: without this the configuration of \
+             the Android target stops with an assertion about the native Android \
+             toolchain support"
         );
         assert!(
             text.contains("'managed': False"),
