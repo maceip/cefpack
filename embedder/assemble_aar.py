@@ -522,6 +522,80 @@ public class NativeLibraries {{
     return out_java
 
 
+def write_fast_out_extra_slow_in_interpolator(src_dir: Path) -> list[Path]:
+    """Emit self-contained `androidx.interpolator.view.animation.FastOutExtraSlowInInterpolator`
+    implementing `android.view.animation.Interpolator` directly (without calling the 1.1.0-alpha
+    `LookupTableInterpolator.interpolate([FFF)F` helper missing from Maven `interpolator:1.0.0`).
+    """
+    time_interp = src_dir / "android/animation/TimeInterpolator.java"
+    time_interp.parent.mkdir(parents=True, exist_ok=True)
+    time_interp.write_text(
+        "package android.animation;\n"
+        "public interface TimeInterpolator {\n"
+        "    float getInterpolation(float input);\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    view_interp = src_dir / "android/view/animation/Interpolator.java"
+    view_interp.parent.mkdir(parents=True, exist_ok=True)
+    view_interp.write_text(
+        "package android.view.animation;\n"
+        "public interface Interpolator extends android.animation.TimeInterpolator {}\n",
+        encoding="utf-8",
+    )
+
+    fast_out = src_dir / "androidx/interpolator/view/animation/FastOutExtraSlowInInterpolator.java"
+    fast_out.parent.mkdir(parents=True, exist_ok=True)
+    fast_out.write_text(
+        """package androidx.interpolator.view.animation;
+
+public class FastOutExtraSlowInInterpolator implements android.view.animation.Interpolator {
+    private static final float[] VALUES = new float[] {
+        0.0f, 8.0E-4f, 0.0016f, 0.0024f, 0.0032f, 0.0057f, 0.0083f, 0.0109f, 0.0134f, 0.0171f,
+        0.0218f, 0.0266f, 0.0313f, 0.036f, 0.0431f, 0.0506f, 0.0581f, 0.0656f, 0.0733f, 0.0835f,
+        0.0937f, 0.1055f, 0.1179f, 0.1316f, 0.1466f, 0.1627f, 0.181f, 0.2003f, 0.2226f, 0.2468f,
+        0.2743f, 0.306f, 0.3408f, 0.3852f, 0.4317f, 0.4787f, 0.5177f, 0.5541f, 0.5834f, 0.6123f,
+        0.6333f, 0.6542f, 0.6739f, 0.6887f, 0.7035f, 0.7183f, 0.7308f, 0.7412f, 0.7517f, 0.7621f,
+        0.7725f, 0.7805f, 0.7879f, 0.7953f, 0.8027f, 0.8101f, 0.8175f, 0.823f, 0.8283f, 0.8336f,
+        0.8388f, 0.8441f, 0.8494f, 0.8546f, 0.8592f, 0.863f, 0.8667f, 0.8705f, 0.8743f, 0.878f,
+        0.8818f, 0.8856f, 0.8893f, 0.8927f, 0.8953f, 0.898f, 0.9007f, 0.9034f, 0.9061f, 0.9087f,
+        0.9114f, 0.9141f, 0.9168f, 0.9194f, 0.9218f, 0.9236f, 0.9255f, 0.9274f, 0.9293f, 0.9312f,
+        0.9331f, 0.935f, 0.9368f, 0.9387f, 0.9406f, 0.9425f, 0.9444f, 0.946f, 0.9473f, 0.9486f,
+        0.9499f, 0.9512f, 0.9525f, 0.9538f, 0.9551f, 0.9564f, 0.9577f, 0.959f, 0.9603f, 0.9616f,
+        0.9629f, 0.9642f, 0.9654f, 0.9663f, 0.9672f, 0.968f, 0.9689f, 0.9697f, 0.9706f, 0.9715f,
+        0.9723f, 0.9732f, 0.9741f, 0.9749f, 0.9758f, 0.9766f, 0.9775f, 0.9784f, 0.9792f, 0.9801f,
+        0.9808f, 0.9813f, 0.9819f, 0.9824f, 0.9829f, 0.9835f, 0.984f, 0.9845f, 0.985f, 0.9856f,
+        0.9861f, 0.9866f, 0.9872f, 0.9877f, 0.9882f, 0.9887f, 0.9893f, 0.9898f, 0.9903f, 0.9909f,
+        0.9914f, 0.9917f, 0.992f, 0.9922f, 0.9925f, 0.9928f, 0.9931f, 0.9933f, 0.9936f, 0.9939f,
+        0.9942f, 0.9944f, 0.9947f, 0.995f, 0.9953f, 0.9955f, 0.9958f, 0.9961f, 0.9964f, 0.9966f,
+        0.9969f, 0.9972f, 0.9975f, 0.9977f, 0.9979f, 0.9981f, 0.9982f, 0.9983f, 0.9984f, 0.9986f,
+        0.9987f, 0.9988f, 0.9989f, 0.9991f, 0.9992f, 0.9993f, 0.9994f, 0.9995f, 0.9995f, 0.9996f,
+        0.9996f, 0.9997f, 0.9997f, 0.9997f, 0.9998f, 0.9998f, 0.9998f, 0.9999f, 0.9999f, 1.0f,
+        1.0f
+    };
+    private static final float STEP = 1.0f / (VALUES.length - 1);
+
+    @Override
+    public float getInterpolation(float input) {
+        if (input >= 1.0f) {
+            return 1.0f;
+        }
+        if (input <= 0.0f) {
+            return 0.0f;
+        }
+        int position = Math.min((int) (input * (VALUES.length - 1)), VALUES.length - 2);
+        float quantized = position * STEP;
+        float weight = (input - quantized) / STEP;
+        return VALUES[position] + weight * (VALUES[position + 1] - VALUES[position]);
+    }
+}
+""",
+        encoding="utf-8",
+    )
+    return [time_interp, view_interp, fast_out]
+
+
 def verify_elf64_shared_lib(so_path: Path, expected_e_machine: int) -> set[str]:
     data = so_path.read_bytes()
     if len(data) < 64 or data[:4] != b"\x7fELF" or data[4] != 2 or data[5] != 1:
@@ -702,6 +776,7 @@ def verify_aar(aar_path: Path, require_x64: bool = True) -> None:
         "org/jni_zero/GEN_JNI.class",
         "org/chromium/build/BuildConfig.class",
         "org/chromium/build/NativeLibraries.class",
+        "androidx/interpolator/view/animation/FastOutExtraSlowInInterpolator.class",
     ]
     for cls in required_classes:
         if cls not in class_entries:
@@ -710,6 +785,8 @@ def verify_aar(aar_path: Path, require_x64: bool = True) -> None:
     for entry in class_entries:
         if entry == "dev/cefpack/android/R.class" or entry.startswith("dev/cefpack/android/R$"):
             raise RuntimeError(f"classes.jar must not package app-level R stub: {entry}")
+        if entry == "androidx/interpolator/view/animation/FastOutExtraSlowInInterpolator.class":
+            continue
         for prefix in FORBIDDEN_CLASS_PREFIXES + STRIPPED_EXTERNAL_CLASS_PREFIXES:
             if entry.startswith(prefix):
                 raise RuntimeError(f"classes.jar contains forbidden/duplicate external class: {entry}")
@@ -776,6 +853,7 @@ def assemble_aar(
         java_files.append(
             prepare_multi_abi_native_libraries_java(gen_src_dir, native_libs_srcjar)
         )
+        java_files.extend(write_fast_out_extra_slow_in_interpolator(gen_src_dir))
         has_jni_reg_srcjar = False
         if jni_registration_srcjar is not None and jni_registration_srcjar.is_file():
             with zipfile.ZipFile(jni_registration_srcjar, "r") as sj:
@@ -823,7 +901,11 @@ def assemble_aar(
 
             for compiled in sorted(gen_cls_dir.rglob("*.class")):
                 rel = compiled.relative_to(gen_cls_dir).as_posix()
-                if rel == "dev/cefpack/android/R.class" or rel.startswith("dev/cefpack/android/R$"):
+                if (
+                    rel.startswith("android/")
+                    or rel == "dev/cefpack/android/R.class"
+                    or rel.startswith("dev/cefpack/android/R$")
+                ):
                     continue
                 if rel in seen_jar_entries:
                     continue
