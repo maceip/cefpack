@@ -475,6 +475,22 @@ python3 "${ROOT}/embedder/assemble_aar.py" \
 sha256sum "${ROOT}/cefpack-android.aar" > "${ROOT}/cefpack-android.aar.sha256"
 tar -czf "${ROOT}/cef-bundle.tar.gz" -C "${CEF_BUNDLE_DIR}" .
 sha256sum "${ROOT}/cef-bundle.tar.gz" > "${ROOT}/cef-bundle.tar.gz.sha256"
+rm -rf "${CEF_BUNDLE_DIR}"
+
+# Evict artifact page cache so Limrun pull-file has maximal RAM headroom on 16 GiB pods.
+python3 - "${ROOT}" <<'PY'
+import os, sys
+for root, _, files in os.walk(sys.argv[1]):
+    for fn in files:
+        if fn.endswith((".aar", ".tar.gz", ".so", ".o", ".a", ".rlib", ".pak", ".dat")):
+            p = os.path.join(root, fn)
+            try:
+                fd = os.open(p, os.O_RDONLY)
+                os.posix_fadvise(fd, 0, 0, os.POSIX_FADV_DONTNEED)
+                os.close(fd)
+            except OSError:
+                pass
+PY
 
 ls -lh "${ROOT}/cefpack-android.aar" "${ROOT}/cef-bundle.tar.gz"
 cat "${ROOT}/cefpack-android.aar.sha256" "${ROOT}/cef-bundle.tar.gz.sha256"
