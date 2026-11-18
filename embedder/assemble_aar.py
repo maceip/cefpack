@@ -45,6 +45,7 @@ import struct
 import subprocess
 import sys
 import tempfile
+import xml.etree.ElementTree as ET
 import zipfile
 from collections import defaultdict
 from pathlib import Path
@@ -55,7 +56,78 @@ FORBIDDEN_CLASS_PREFIXES = (
     "com/google/mlkit/",
     "com/cefrium/",
     "org/chromium/content/browser/sms/",
+    "org/chromium/gms/",
+    "org/chromium/shape_detection/",
+    "org/chromium/device/geolocation/LocationProviderGmsCore",
 )
+
+STRIPPED_EXTERNAL_CLASS_PREFIXES = (
+    "androidx/",
+    "kotlin/",
+    "kotlinx/",
+    "_COROUTINE/",
+    "org/jetbrains/",
+    "org/intellij/",
+    "org/jspecify/",
+    "javax/annotation/",
+    "android/support/",
+    "com/google/errorprone/",
+    "com/google/j2objc/",
+)
+
+DROP_NONVAL_RESOURCE_PREFIXES = (
+    "abc_",
+    "common_google_",
+    "common_full_open_on_phone",
+    "googleg_",
+    "gshield_",
+    "notification_",
+    "notify_panel_",
+    "btn_checkbox_",
+    "btn_radio_on_mtrl",
+    "btn_radio_off_mtrl",
+    "btn_radio_to_",
+    "support_simple_",
+    "test_level_",
+    "ime_base_split_test_",
+    "ime_secondary_split_test_",
+    "ic_call_",
+    "fragment_",
+    "select_dialog_",
+    "tooltip_frame_",
+    "custom_dialog.xml",
+    "switch_thumb_material_",
+)
+
+CONSUMER_PROGUARD_RULES = """# Cefpack Android consumer R8 / ProGuard rules
+-keep class dev.cefpack.android.** { *; }
+-keep class org.jni_zero.** { *; }
+-keep class J.N { *; }
+-keepclasseswithmembers,includedescriptorclasses class org.chromium.** {
+    native <methods>;
+}
+-keepclassmembers,includedescriptorclasses class org.chromium.** {
+    @org.jni_zero.CalledByNative <methods>;
+    @org.jni_zero.CalledByNativeUnchecked <methods>;
+    @org.jni_zero.CalledByNativeForTesting <methods>;
+    @org.jni_zero.AccessedByNative <fields>;
+    @org.chromium.base.annotations.CalledByNative <methods>;
+    @org.chromium.base.annotations.CalledByNativeUnchecked <methods>;
+    @org.chromium.base.annotations.AccessedByNative <fields>;
+    @org.chromium.build.annotations.UsedByReflection <methods>;
+    @org.chromium.build.annotations.UsedByReflection <fields>;
+}
+-keep @org.chromium.build.annotations.UsedByReflection class org.chromium.** { *; }
+-keep class org.chromium.content.app.** { *; }
+-keep class org.chromium.base.process_launcher.** { *; }
+-keep class org.chromium.**.R { *; }
+-keep class org.chromium.**.R$* { *; }
+-dontwarn androidx.window.**
+-dontwarn org.chromium.**
+-dontwarn com.google.errorprone.annotations.**
+-dontwarn com.google.j2objc.annotations.**
+-dontwarn javax.annotation.**
+"""
 
 R_CLASS_RE = re.compile(r"^(?:([A-Za-z0-9_$]+(?:/[A-Za-z0-9_$]+)*)/)?R(?:\$([A-Za-z0-9_]+))?$")
 
@@ -151,7 +223,7 @@ def scan_class_constant_pool(data: bytes) -> tuple[set[tuple[str, str | None]], 
             continue
         pkg = m.group(1) or ""
         inner = m.group(2)
-        if pkg in ("android", "dev/cefpack/android") or pkg.startswith("android/"):
+        if pkg != "org/chromium" and not pkg.startswith("org/chromium/"):
             continue
         r_classes.add((pkg, inner))
 
@@ -162,7 +234,7 @@ def scan_class_constant_pool(data: bytes) -> tuple[set[tuple[str, str | None]], 
             continue
         pkg = m.group(1) or ""
         inner = m.group(2)
-        if pkg in ("android", "dev/cefpack/android") or pkg.startswith("android/"):
+        if pkg != "org/chromium" and not pkg.startswith("org/chromium/"):
             continue
         nat = nat_pool.get(nat_idx)
         if not nat:
@@ -177,11 +249,16 @@ def scan_class_constant_pool(data: bytes) -> tuple[set[tuple[str, str | None]], 
 
 
 def is_excluded_jar_entry(entry_name: str) -> bool:
-    if entry_name.startswith("META-INF/"):
-        return False
+    if entry_name.startswith("META-INF/") or entry_name.endswith(".kotlin_module") or entry_name == "module-info.class":
+        return True
     for prefix in FORBIDDEN_CLASS_PREFIXES:
         if entry_name.startswith(prefix):
             return True
+    for prefix in STRIPPED_EXTERNAL_CLASS_PREFIXES:
+        if entry_name.startswith(prefix):
+            return True
+    if entry_name == "com/google/common/util/concurrent/ListenableFuture.class":
+        return True
     if entry_name in ("org/chromium/build/NativeLibraries.class",) or entry_name.startswith(
         "org/chromium/build/NativeLibraries$"
     ):
@@ -194,6 +271,120 @@ def is_excluded_jar_entry(entry_name: str) -> bool:
             if pkg != "android" and not pkg.startswith("android/"):
                 return True
     return False
+
+
+def collect_chromium_resources_and_r_txt(
+    res_dir: Path, raw_r_txt: Path
+) -> tuple[dict[str, bytes], bytes]:
+    """Flatten `res/<N>_res/<dir>/<file>` -> `res/<dir>/<file>`, strip fat-bundled
+    GMS / AndroidX resources, and prune `R.txt` to match the kept resource set.
+    """
+    kept_res: dict[str, bytes] = {}
+    defined_res: set[tuple[str, str]] = set()
+
+    if res_dir.is_dir():
+        for res_file in sorted(res_dir.rglob("*")):
+            if not res_file.is_file():
+                continue
+            orig_rel = "res/" + res_file.relative_to(res_dir).as_posix()
+            flat_rel = re.sub(r"^res/\d+_res/", "res/", orig_rel)
+            parts = flat_rel.split("/")
+            if len(parts) != 3:
+                continue
+            _, rdir, fname = parts
+            payload = res_file.read_bytes()
+
+            if rdir.startswith("values"):
+                if not fname.endswith(".xml"):
+                    continue
+                txt = payload.decode("utf-8", errors="replace")
+                if "gmscore" in txt or "common_google_play_services" in txt:
+                    continue
+                if not (
+                    fname.startswith(("android_content_strings", "android_ui_strings", "strings_0."))
+                    or "cefpack_engine_name" in txt
+                    or "cefpack_webview_app_name" in txt
+                    or "The Chromium Authors" in txt
+                ):
+                    continue
+                kept_res[flat_rel] = payload
+                root = ET.fromstring(txt)
+                for elem in root:
+                    tag = elem.tag
+                    name = elem.attrib.get("name")
+                    if not name:
+                        continue
+                    name_norm = name.replace(".", "_")
+                    if tag == "item":
+                        rtype = elem.attrib.get("type")
+                        if rtype:
+                            defined_res.add((rtype, name_norm))
+                    elif tag == "declare-styleable":
+                        defined_res.add(("styleable", name_norm))
+                        for attr in elem:
+                            aname = attr.attrib.get("name")
+                            if aname:
+                                defined_res.add(
+                                    (
+                                        "styleable",
+                                        f"{name_norm}_{aname.replace(':', '_').replace('.', '_')}",
+                                    )
+                                )
+                                if ":" not in aname:
+                                    defined_res.add(("attr", aname.replace(".", "_")))
+                    elif tag in (
+                        "string",
+                        "color",
+                        "dimen",
+                        "style",
+                        "attr",
+                        "id",
+                        "integer",
+                        "bool",
+                        "array",
+                        "string-array",
+                        "integer-array",
+                        "plurals",
+                        "fraction",
+                    ):
+                        rtype = "array" if tag.endswith("-array") else tag
+                        defined_res.add((rtype, name_norm))
+            else:
+                if fname.startswith(DROP_NONVAL_RESOURCE_PREFIXES):
+                    continue
+                kept_res[flat_rel] = payload
+                rtype = rdir.split("-")[0]
+                bname = fname.split(".")[0]
+                defined_res.add((rtype, bname))
+                if fname.endswith(".xml"):
+                    txt = payload.decode("utf-8", errors="replace")
+                    for id_m in re.findall(r"@\+id/([A-Za-z0-9_.]+)", txt):
+                        defined_res.add(("id", id_m.replace(".", "_")))
+
+    dedup_r: dict[tuple[str, str], str] = {}
+    dedup_order: list[tuple[str, str]] = []
+    if raw_r_txt.is_file():
+        for line in raw_r_txt.read_text(encoding="utf-8").splitlines():
+            parts = line.strip().split(None, 3)
+            if len(parts) < 4:
+                continue
+            _jtype, rtype, rname, rval = parts
+            if rname.startswith("common_google_") or rname == "google_play_services_version":
+                continue
+            if (rtype, rname) not in defined_res:
+                continue
+            key = (rtype, rname)
+            if key not in dedup_r:
+                dedup_order.append(key)
+                dedup_r[key] = line.strip()
+            else:
+                prev_val = dedup_r[key].split(None, 3)[3]
+                if prev_val in ("0", "0x0", "0x00000000") and rval not in ("0", "0x0", "0x00000000"):
+                    dedup_r[key] = line.strip()
+
+    pruned_lines = [dedup_r[k] for k in dedup_order]
+    pruned_bytes = ("\n".join(pruned_lines) + ("\n" if pruned_lines else "")).encode("utf-8")
+    return kept_res, pruned_bytes
 
 
 def write_stub_and_delegating_r_sources(
@@ -460,6 +651,49 @@ def verify_aar(aar_path: Path, require_x64: bool = True) -> None:
             classes_jar.write_bytes(zf.read("classes.jar"))
             with zipfile.ZipFile(classes_jar, "r") as cj:
                 class_entries = set(cj.namelist())
+                for c_entry in class_entries:
+                    if not c_entry.endswith(".class"):
+                        continue
+                    c_bytes = cj.read(c_entry)
+                    for bad_ref in (
+                        b"com/google/android/gms/",
+                        b"com/google/firebase/",
+                        b"com/google/mlkit/",
+                        b"com/cefrium/",
+                    ):
+                        if bad_ref in c_bytes:
+                            raise RuntimeError(
+                                f"classes.jar entry {c_entry} references forbidden symbol {bad_ref.decode()} in constant pool"
+                            )
+
+        for info_name in infos:
+            if info_name.startswith("res/"):
+                if re.match(r"^res/\d+_res/", info_name) or len(info_name.split("/")) != 3:
+                    raise RuntimeError(f"AAR contains unflattened resource path: {info_name}")
+                fname = info_name.split("/")[-1]
+                if fname.startswith(("common_google_", "googleg_", "gshield_", "abc_")):
+                    raise RuntimeError(f"AAR contains forbidden GMS/AppCompat resource: {info_name}")
+                if info_name.endswith(".xml"):
+                    rtxt_xml = zf.read(info_name).decode("utf-8", errors="replace")
+                    if "gmscore" in rtxt_xml or "common_google_play_services" in rtxt_xml:
+                        raise RuntimeError(f"AAR resource {info_name} contains GMS strings")
+
+        r_txt_check = zf.read("R.txt").decode("utf-8", errors="replace")
+        if "common_google_" in r_txt_check or "google_play_services_version" in r_txt_check:
+            raise RuntimeError("AAR R.txt contains forbidden GMS Play Services symbols")
+        seen_r_keys: set[tuple[str, str]] = set()
+        for r_line in r_txt_check.splitlines():
+            r_parts = r_line.strip().split(None, 3)
+            if len(r_parts) >= 4:
+                rk = (r_parts[1], r_parts[2])
+                if rk in seen_r_keys:
+                    raise RuntimeError(f"AAR R.txt contains duplicate symbol {rk}")
+                seen_r_keys.add(rk)
+
+        if "proguard.txt" in infos:
+            pg_txt = zf.read("proguard.txt").decode("utf-8", errors="replace")
+            if "-maximumremovedandroidloglevel" in pg_txt or "cr_allowunused" in pg_txt:
+                raise RuntimeError("AAR proguard.txt contains internal Chromium R8 directives")
 
     required_classes = [
         "dev/cefpack/android/CefpackEngine.class",
@@ -476,9 +710,11 @@ def verify_aar(aar_path: Path, require_x64: bool = True) -> None:
     for entry in class_entries:
         if entry == "dev/cefpack/android/R.class" or entry.startswith("dev/cefpack/android/R$"):
             raise RuntimeError(f"classes.jar must not package app-level R stub: {entry}")
-        for prefix in FORBIDDEN_CLASS_PREFIXES:
+        for prefix in FORBIDDEN_CLASS_PREFIXES + STRIPPED_EXTERNAL_CLASS_PREFIXES:
             if entry.startswith(prefix):
-                raise RuntimeError(f"classes.jar contains forbidden class: {entry}")
+                raise RuntimeError(f"classes.jar contains forbidden/duplicate external class: {entry}")
+        if entry == "com/google/common/util/concurrent/ListenableFuture.class":
+            raise RuntimeError("classes.jar contains duplicate ListenableFuture.class")
 
 
 def assemble_aar(
@@ -506,9 +742,14 @@ def assemble_aar(
         with zipfile.ZipFile(base_aar, "r") as zf:
             zf.extractall(unpacked)
 
-        r_txt_path = unpacked / "R.txt"
-        if not r_txt_path.is_file():
-            r_txt_path.write_text("", encoding="utf-8")
+        raw_r_txt_path = unpacked / "R.txt"
+        if not raw_r_txt_path.is_file():
+            raw_r_txt_path.write_text("", encoding="utf-8")
+        kept_res, pruned_r_txt_bytes = collect_chromium_resources_and_r_txt(
+            unpacked / "res", raw_r_txt_path
+        )
+        r_txt_path = work / "pruned_R.txt"
+        r_txt_path.write_bytes(pruned_r_txt_bytes)
         r_txt_resources = parse_r_txt(r_txt_path)
 
         orig_classes_jar = unpacked / "classes.jar"
@@ -603,17 +844,10 @@ def assemble_aar(
             )
             write_aar_entry("classes.jar", rebuilt_jar.read_bytes())
             write_aar_entry("R.txt", r_txt_path.read_bytes())
+            write_aar_entry("proguard.txt", CONSUMER_PROGUARD_RULES.encode("utf-8"))
 
-            proguard_txt = unpacked / "proguard.txt"
-            if proguard_txt.is_file():
-                write_aar_entry("proguard.txt", proguard_txt.read_bytes())
-
-            res_dir = unpacked / "res"
-            if res_dir.is_dir():
-                for res_file in sorted(res_dir.rglob("*")):
-                    if res_file.is_file():
-                        rel_res = "res/" + res_file.relative_to(res_dir).as_posix()
-                        write_aar_entry(rel_res, res_file.read_bytes())
+            for rel_res, res_payload in sorted(kept_res.items()):
+                write_aar_entry(rel_res, res_payload)
 
             write_aar_entry("jni/arm64-v8a/libcefpack_content.so", arm64_so.read_bytes())
             if x64_so is not None:
