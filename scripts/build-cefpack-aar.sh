@@ -342,6 +342,7 @@ use_remoteexec = false
 concurrent_links = 1
 clang_use_chrome_plugins = false
 treat_warnings_as_errors = false
+android_static_analysis = "off"
 
 v8_use_external_startup_data = false
 icu_use_data_file = true
