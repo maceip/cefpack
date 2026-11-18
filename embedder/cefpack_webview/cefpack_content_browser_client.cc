@@ -22,6 +22,7 @@
 #include "net/dns/public/secure_dns_mode.h"
 #include "net/proxy_resolution/proxy_config.h"
 #include "net/proxy_resolution/proxy_config_with_annotation.h"
+#include "net/proxy_resolution/proxy_host_matching_rules.h"
 #include "net/traffic_annotation/network_traffic_annotation.h"
 #include "services/cert_verifier/public/mojom/cert_verifier_service_factory.mojom.h"
 #include "services/network/public/mojom/host_resolver.mojom.h"
@@ -59,6 +60,7 @@ net::ProxyConfigWithAnnotation BuildSocksProxyConfig(
     const std::string& normalized_rules) {
   net::ProxyConfig config;
   config.proxy_rules().ParseFromString(normalized_rules);
+  config.proxy_rules().bypass_rules.AddRulesToSubtractImplicit();
   return net::ProxyConfigWithAnnotation(config, MISSING_TRAFFIC_ANNOTATION);
 }
 

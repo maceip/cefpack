@@ -40,6 +40,10 @@ import java.util.WeakHashMap;
 public final class CefpackEngine {
     public static final String LOG_TAG = "Cefpack";
     private static final String PRIVATE_DATA_DIR_SUFFIX = "cefpack";
+    private static final String HARDENED_DISABLED_FEATURES =
+            "PartitionAllocMemoryTagging,AutofillServerCommunication,OptimizationHints,"
+                    + "Translate,MediaRouter,WebRtcHideLocalIpsWithMdns,"
+                    + "HttpsUpgrades,HttpsFirstBalancedMode,HttpsFirstBalancedModeAutoEnable";
 
     private static volatile boolean sProcessInitialized;
     private static volatile boolean sBrowserStarted;
@@ -97,17 +101,9 @@ public final class CefpackEngine {
             initProcess(appContext);
 
             if (!CommandLine.isInitialized()) {
-                CommandLine.init(
-                        new String[] {
-                            "cefpack",
-                            "--disable-features=PartitionAllocMemoryTagging,AutofillServerCommunication,OptimizationHints,Translate,MediaRouter,WebRtcHideLocalIpsWithMdns,HttpsUpgrades,HttpsFirstBalancedModeAutoEnable",
-                            "--host-resolver-rules=MAP * ~NOTFOUND , EXCLUDE 127.0.0.1",
-                            "--dns-prefetch-disable",
-                            "--no-pings",
-                            "--disable-background-networking",
-                            "--js-flags=--jitless,--no-expose-wasm"
-                        });
+                CommandLine.init(new String[] {"cefpack"});
             }
+            applyHardenedSwitches(CommandLine.getInstance());
 
             DeviceUtils.updateDeviceSpecificUserAgentSwitch(appContext);
             LibraryLoader.getInstance().ensureInitialized();
@@ -156,6 +152,42 @@ public final class CefpackEngine {
     public static void reapUnusedRenderers() {
         if (sBrowserStarted) {
             ThreadUtils.runOnUiThread(() -> CefpackEngineJni.get().reapUnusedRenderers());
+        }
+    }
+
+    private static void applyHardenedSwitches(CommandLine cmd) {
+        if (cmd == null) {
+            return;
+        }
+        String existing = cmd.getSwitchValue("disable-features", "");
+        java.util.LinkedHashSet<String> merged = new java.util.LinkedHashSet<>();
+        if (existing != null && !existing.isEmpty()) {
+            for (String token : existing.split(",")) {
+                String trimmed = token.trim();
+                if (!trimmed.isEmpty()) {
+                    merged.add(trimmed);
+                }
+            }
+        }
+        for (String token : HARDENED_DISABLED_FEATURES.split(",")) {
+            String trimmed = token.trim();
+            if (!trimmed.isEmpty()) {
+                merged.add(trimmed);
+            }
+        }
+        if (cmd.hasSwitch("disable-features")) {
+            cmd.removeSwitch("disable-features");
+        }
+        cmd.appendSwitchWithValue("disable-features", String.join(",", merged));
+
+        if (!cmd.hasSwitch("host-resolver-rules")) {
+            cmd.appendSwitchWithValue("host-resolver-rules", "MAP * ~NOTFOUND , EXCLUDE 127.0.0.1");
+        }
+        cmd.appendSwitch("dns-prefetch-disable");
+        cmd.appendSwitch("no-pings");
+        cmd.appendSwitch("disable-background-networking");
+        if (!cmd.hasSwitch("js-flags")) {
+            cmd.appendSwitchWithValue("js-flags", "--jitless,--no-expose-wasm");
         }
     }
 

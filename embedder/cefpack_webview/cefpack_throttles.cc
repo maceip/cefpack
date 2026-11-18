@@ -122,7 +122,8 @@ CefpackNavigationThrottle::CheckNavigation() {
   const std::string top_url =
       is_main_frame ? url.spec() : web_contents->GetVisibleURL().spec();
   const std::string resource_type = is_main_frame ? "main_frame" : "sub_frame";
-  if (session->ShouldBlockRequest(url.spec(), "GET", is_main_frame,
+  const char* method = handle->IsPost() ? "POST" : "GET";
+  if (session->ShouldBlockRequest(url.spec(), method, is_main_frame,
                                   resource_type, top_url)) {
     return BLOCK_REQUEST;
   }
