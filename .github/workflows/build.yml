@@ -27,8 +27,6 @@ on:
         description: publish the bundle as a release
         type: boolean
         default: false
-  push:
-    tags: ["v*"]
 
 permissions:
   contents: write
