@@ -230,10 +230,15 @@ dist_aar("cefpack_base_aar") {
   ]
 
   android_manifest = "AndroidManifest.xml"
-  native_libraries = [ "$root_out_dir/libcefpack_content.so" ]
   output = "$root_out_dir/cefpack_base.aar"
 
   jar_excluded_patterns = [
+    "META-INF/*",
+    "META-INF/*/*",
+    "META-INF/*/*/*",
+    "META-INF/*/*/*/*",
+    "*.kotlin_module",
+    "module-info.class",
     "dev/cefpack/android/R.class",
     "dev/cefpack/android/R\$*.class",
     "org/chromium/*/R.class",
