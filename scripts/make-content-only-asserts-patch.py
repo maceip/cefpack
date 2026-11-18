@@ -176,12 +176,36 @@ def the_source(root: pathlib.Path, path: pathlib.Path) -> str:
     return path.read_text()
 
 
+def the_known_files(root: pathlib.Path) -> set:
+    """The files that the repository of Chromium holds.
+
+    Some directories of the tree are checkouts of their own — the
+    directory of the CEF tree, the directories of some of the third
+    parties.  Git does not know their files, and a patch that names them
+    does not fit the repository.
+    """
+    import subprocess
+
+    done = subprocess.run(
+        ["git", "ls-files", "-z"],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return {name for name in done.stdout.split("\0") if name}
+
+
 def main() -> int:
     root = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else ".").resolve()
+    known = the_known_files(root)
     out = []
     touched = 0
     skipped = 0
     for path in the_files(root):
+        if str(path.relative_to(root)) not in known:
+            skipped += 1
+            continue
         try:
             source = the_source(root, path)
         except Exception:  # noqa: BLE001

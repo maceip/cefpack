@@ -19432,30 +19432,6 @@ diff --git a/third_party/lottie/BUILD.gn b/third_party/lottie/BUILD.gn
  
  node("minify") {
    script = "minify_lottie.py"
-diff --git a/third_party/perfetto/buildtools/grpc/BUILD.gn b/third_party/perfetto/buildtools/grpc/BUILD.gn
---- a/third_party/perfetto/buildtools/grpc/BUILD.gn
-+++ b/third_party/perfetto/buildtools/grpc/BUILD.gn
-@@ -12,7 +12,7 @@
- 
- # BoringSSL has assembly code which is tied to platform-specific. For now, we
- # only care about Linux x64 so assert this as the case.
--assert(is_linux && current_cpu == "x64")
-+assert(is_linux && current_cpu == "x64" || cef_content_only)
- 
- static_library("boringssl") {
-   sources = [
-diff --git a/third_party/perfetto/examples/shared_lib/BUILD.gn b/third_party/perfetto/examples/shared_lib/BUILD.gn
---- a/third_party/perfetto/examples/shared_lib/BUILD.gn
-+++ b/third_party/perfetto/examples/shared_lib/BUILD.gn
-@@ -14,7 +14,7 @@
- 
- # On windows C11 (required for atomics) is not really supported, so we can't
- # really build a C executable.
--assert(!is_win)
-+assert(!is_win || cef_content_only)
- 
- executable("example_shlib_data_source") {
-   testonly = true
 diff --git a/third_party/glib/BUILD.gn b/third_party/glib/BUILD.gn
 --- a/third_party/glib/BUILD.gn
 +++ b/third_party/glib/BUILD.gn
@@ -19516,54 +19492,6 @@ diff --git a/third_party/isimpledom/BUILD.gn b/third_party/isimpledom/BUILD.gn
  
  import("//build/toolchain/win/midl.gni")
  
-diff --git a/third_party/angle/src/libANGLE/renderer/metal/BUILD.gn b/third_party/angle/src/libANGLE/renderer/metal/BUILD.gn
---- a/third_party/angle/src/libANGLE/renderer/metal/BUILD.gn
-+++ b/third_party/angle/src/libANGLE/renderer/metal/BUILD.gn
-@@ -11,7 +11,7 @@
-   import("//build/config/mac/mac_sdk.gni")
- }
- 
--assert(is_mac || is_ios)
-+assert(is_mac || is_ios || cef_content_only)
- assert(angle_enable_metal)
- 
- config("angle_metal_backend_config") {
-diff --git a/third_party/angle/third_party/libdrm/BUILD.gn b/third_party/angle/third_party/libdrm/BUILD.gn
---- a/third_party/angle/third_party/libdrm/BUILD.gn
-+++ b/third_party/angle/third_party/libdrm/BUILD.gn
-@@ -1,7 +1,7 @@
- # Copyright 2016 The Chromium Authors
- # Use of this source code is governed by a BSD-style license that can be
- # found in the LICENSE file.
--assert(is_linux || is_chromeos)
-+assert(is_linux || is_chromeos || cef_content_only)
- 
- generated_static_table_fourcc_file =
-     "$target_gen_dir/src/generated_static_table_fourcc.h"
-diff --git a/third_party/angle/third_party/wayland/BUILD.gn b/third_party/angle/third_party/wayland/BUILD.gn
---- a/third_party/angle/third_party/wayland/BUILD.gn
-+++ b/third_party/angle/third_party/wayland/BUILD.gn
-@@ -7,7 +7,7 @@
- import("//third_party/wayland/wayland_protocol.gni")
- import("//tools/generate_stubs/rules.gni")
- 
--assert(is_linux || is_chromeos || target_os == "linux")
-+assert(is_linux || is_chromeos || target_os == "linux" || cef_content_only)
- 
- if (!use_system_libwayland) {
-   wayland_protocol("wayland_protocol_c") {
-diff --git a/third_party/dawn/third_party/libdrm/BUILD.gn b/third_party/dawn/third_party/libdrm/BUILD.gn
---- a/third_party/dawn/third_party/libdrm/BUILD.gn
-+++ b/third_party/dawn/third_party/libdrm/BUILD.gn
-@@ -1,7 +1,7 @@
- # Copyright 2016 The Chromium Authors
- # Use of this source code is governed by a BSD-style license that can be
- # found in the LICENSE file.
--assert(is_linux || is_chromeos)
-+assert(is_linux || is_chromeos || cef_content_only)
- 
- generated_static_table_fourcc_file =
-     "$target_gen_dir/src/generated_static_table_fourcc.h"
 diff --git a/third_party/wayland/BUILD.gn b/third_party/wayland/BUILD.gn
 --- a/third_party/wayland/BUILD.gn
 +++ b/third_party/wayland/BUILD.gn
@@ -19837,18 +19765,6 @@ diff --git a/headless/BUILD.gn b/headless/BUILD.gn
  
  if (headless_enable_commands) {
    assert(
-diff --git a/v8/BUILD.gn b/v8/BUILD.gn
---- a/v8/BUILD.gn
-+++ b/v8/BUILD.gn
-@@ -1573,7 +1573,7 @@
-     defines += [ "V8_ENABLE_SYSTEM_INSTRUMENTATION" ]
-   }
-   if (v8_enable_etw_stack_walking) {
--    assert(is_win)
-+    assert(is_win || cef_content_only)
-     defines += [ "V8_ENABLE_ETW_STACK_WALKING" ]
-   }
-   if (v8_etw_guid != "") {
 diff --git a/gpu/vulkan/win32/BUILD.gn b/gpu/vulkan/win32/BUILD.gn
 --- a/gpu/vulkan/win32/BUILD.gn
 +++ b/gpu/vulkan/win32/BUILD.gn
