@@ -23,8 +23,8 @@ std::string_view CefpackContentClient::GetDataResource(
       resource_id, scale_factor);
 }
 
-base::RefCountedMemory* CefpackContentClient::GetDataResourceBytes(
-    int resource_id) {
+scoped_refptr<base::RefCountedMemory>
+CefpackContentClient::GetDataResourceBytes(int resource_id) {
   return ui::ResourceBundle::GetSharedInstance().LoadDataResourceBytes(
       resource_id);
 }

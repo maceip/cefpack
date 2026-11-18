@@ -26,6 +26,7 @@
 #include "services/cert_verifier/public/mojom/cert_verifier_service_factory.mojom.h"
 #include "services/network/public/mojom/host_resolver.mojom.h"
 #include "services/network/public/mojom/network_service.mojom.h"
+#include "third_party/blink/public/common/switches.h"
 #include "third_party/blink/public/common/web_preferences/web_preferences.h"
 
 namespace cefpack {
@@ -154,8 +155,8 @@ CefpackContentBrowserClient::CreateBrowserMainParts(bool is_integration_test) {
 void CefpackContentBrowserClient::AppendExtraCommandLineSwitches(
     base::CommandLine* command_line,
     int child_process_id) {
-  if (!command_line->HasSwitch(switches::kJavaScriptFlags)) {
-    command_line->AppendSwitchASCII(switches::kJavaScriptFlags,
+  if (!command_line->HasSwitch(blink::switches::kJavaScriptFlags)) {
+    command_line->AppendSwitchASCII(blink::switches::kJavaScriptFlags,
                                     "--jitless,--no-expose-wasm");
   }
 }

@@ -24,6 +24,7 @@
 #include "content/public/browser/android/compositor.h"
 #include "content/public/browser/browser_main_runner.h"
 #include "content/public/common/content_switches.h"
+#include "third_party/blink/public/common/switches.h"
 #include "ui/base/resource/resource_bundle.h"
 
 namespace cefpack {
@@ -59,8 +60,8 @@ void AppendHardeningSwitches(base::CommandLine& command_line) {
   command_line.AppendSwitch("disable-domain-reliability");
   command_line.AppendSwitch("disable-sync");
 
-  if (!command_line.HasSwitch(switches::kJavaScriptFlags)) {
-    command_line.AppendSwitchASCII(switches::kJavaScriptFlags,
+  if (!command_line.HasSwitch(blink::switches::kJavaScriptFlags)) {
+    command_line.AppendSwitchASCII(blink::switches::kJavaScriptFlags,
                                    "--jitless,--no-expose-wasm");
   }
 }

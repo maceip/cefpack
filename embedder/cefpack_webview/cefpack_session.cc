@@ -234,33 +234,29 @@ void CefpackSession::CloseContents(content::WebContents* source) {
   // Tab lifecycle is owned explicitly by TabSessionManager in Java/Kotlin.
 }
 
-bool CefpackSession::ShouldCreateWebContents(
-    content::WebContents* web_contents,
+bool CefpackSession::IsWebContentsCreationOverridden(
     content::RenderFrameHost* opener,
     content::SiteInstance* source_site_instance,
-    int32_t route_id,
-    int32_t main_frame_route_id,
-    int32_t main_frame_widget_route_id,
     content::mojom::WindowContainerType window_container_type,
     const GURL& opener_url,
     const std::string& frame_name,
-    const GURL& target_url,
-    const std::string& partition_id,
-    content::SessionStorageNamespace* session_storage_namespace) {
+    const GURL& target_url) {
   if (java_session_) {
     JNIEnv* env = base::android::AttachCurrentThread();
-    const bool has_gesture = opener ? opener->HasTransientUserActivation() : false;
+    const bool has_gesture =
+        opener ? opener->HasTransientUserActivation() : false;
     Java_CefpackSession_onPopupRequestedFromNative(
         env, java_session_,
         base::android::ConvertUTF8ToJavaString(env, target_url.spec()),
         has_gesture);
   }
-  // Always suppress native multi-window WebContents creation; Trap routes
-  // user-gesture popups into managed Tor tabs via PopupHandler.
-  return false;
+  // Return true so Chromium calls CreateCustomWebContents() (which defaults to
+  // nullptr), suppressing native multi-window WebContents creation while Trap
+  // routes user-gesture popups into managed Tor tabs via PopupHandler.
+  return true;
 }
 
-void CefpackSession::AddNewContents(
+content::WebContents* CefpackSession::AddNewContents(
     content::WebContents* source,
     std::unique_ptr<content::WebContents> new_contents,
     const GURL& target_url,
@@ -278,6 +274,7 @@ void CefpackSession::AddNewContents(
   if (was_blocked) {
     *was_blocked = true;
   }
+  return nullptr;
 }
 
 void CefpackSession::EnterFullscreenModeForTab(

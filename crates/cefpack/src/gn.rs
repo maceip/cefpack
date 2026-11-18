@@ -41,6 +41,7 @@ pub fn base_args(target_cpu: &str, min_sdk: u32) -> Vec<String> {
         // The PGO phase of the official build needs the profiles of a
         // previous build; the bundler does not have them.
         "chrome_pgo_phase=0".to_string(),
+        "android_static_analysis=\"off\"".to_string(),
         // The API level of the application.
         format!("android_min_sdk_version={min_sdk}"),
     ]

@@ -22,7 +22,6 @@
 namespace cefpack {
 
 class CefpackBrowserContext;
-class CefpackBrowserMainParts;
 
 class CefpackContentBrowserClient : public content::ContentBrowserClient {
  public:

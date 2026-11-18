@@ -7,9 +7,13 @@
 
 #include <memory>
 
+#include <string>
+
 #include "base/functional/callback.h"
 #include "content/public/browser/navigation_throttle.h"
+#include "services/network/public/mojom/fetch_api.mojom-shared.h"
 #include "third_party/blink/public/common/loader/url_loader_throttle.h"
+#include "url/gurl.h"
 
 namespace content {
 class NavigationThrottleRegistry;

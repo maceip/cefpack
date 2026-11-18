@@ -152,6 +152,7 @@ args = [
   # of CEF instead of turning on flags that Chromium refuses.
   "clang_use_chrome_plugins=false",
   "optimize_webui=true",
+  "android_static_analysis=\"off\"",
 ]
 # The arguments of a debug build, on top of the ones above.
 debug_args = [
