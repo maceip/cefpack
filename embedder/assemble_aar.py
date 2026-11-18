@@ -331,7 +331,7 @@ public class NativeLibraries {{
     return out_java
 
 
-def verify_elf64_shared_lib(so_path: Path, expected_e_machine: int) -> None:
+def verify_elf64_shared_lib(so_path: Path, expected_e_machine: int) -> set[str]:
     data = so_path.read_bytes()
     if len(data) < 64 or data[:4] != b"\x7fELF" or data[4] != 2 or data[5] != 1:
         raise RuntimeError(f"{so_path} is not a little-endian ELF64 binary")
@@ -366,8 +366,9 @@ def verify_elf64_shared_lib(so_path: Path, expected_e_machine: int) -> None:
     if pt_load_count == 0:
         raise RuntimeError(f"{so_path} has zero PT_LOAD segments")
 
-    # Verify JNI_OnLoad is exported in .dynsym (SHT_DYNSYM = 11).
+    # Verify JNI_OnLoad is exported in .dynsym (SHT_DYNSYM = 11) and collect Java_* JNI exports.
     found_jni_onload = False
+    jni_exports: set[str] = set()
     if e_shoff and e_shnum and e_shentsize >= 64:
         sections = []
         for i in range(e_shnum):
@@ -388,11 +389,16 @@ def verify_elf64_shared_lib(so_path: Path, expected_e_machine: int) -> None:
                     if st_shndx == 0 or (st_info >> 4) == 0:
                         continue
                     end = dynstr.find(b"\x00", st_name)
-                    if end != -1 and dynstr[st_name:end] == b"JNI_OnLoad":
+                    if end == -1:
+                        continue
+                    sym_bytes = dynstr[st_name:end]
+                    if sym_bytes == b"JNI_OnLoad":
                         found_jni_onload = True
-                        break
+                    elif sym_bytes.startswith(b"Java_"):
+                        jni_exports.add(sym_bytes.decode("utf-8", errors="replace"))
     if not found_jni_onload:
         raise RuntimeError(f"{so_path} does not export defined global symbol JNI_OnLoad in .dynsym")
+    return jni_exports
 
 
 def verify_aar(aar_path: Path, require_x64: bool = True) -> None:
@@ -436,12 +442,19 @@ def verify_aar(aar_path: Path, require_x64: bool = True) -> None:
             tmp_path = Path(tmp)
             arm64_so = tmp_path / "arm64.so"
             arm64_so.write_bytes(zf.read("jni/arm64-v8a/libcefpack_content.so"))
-            verify_elf64_shared_lib(arm64_so, expected_e_machine=183)  # EM_AARCH64
+            arm64_jni_syms = verify_elf64_shared_lib(arm64_so, expected_e_machine=183)  # EM_AARCH64
 
             if require_x64:
                 x64_so = tmp_path / "x64.so"
                 x64_so.write_bytes(zf.read("jni/x86_64/libcefpack_content.so"))
-                verify_elf64_shared_lib(x64_so, expected_e_machine=62)  # EM_X86_64
+                x64_jni_syms = verify_elf64_shared_lib(x64_so, expected_e_machine=62)  # EM_X86_64
+                if arm64_jni_syms != x64_jni_syms:
+                    only_arm = sorted(arm64_jni_syms - x64_jni_syms)[:10]
+                    only_x64 = sorted(x64_jni_syms - arm64_jni_syms)[:10]
+                    raise RuntimeError(
+                        f"Cross-ABI JNI symbol mismatch between arm64-v8a ({len(arm64_jni_syms)}) "
+                        f"and x86_64 ({len(x64_jni_syms)}): arm64_only={only_arm}, x64_only={only_x64}"
+                    )
 
             classes_jar = tmp_path / "classes.jar"
             classes_jar.write_bytes(zf.read("classes.jar"))
@@ -480,6 +493,7 @@ def assemble_aar(
     bundle_dir: Path | None,
     chromium_version: str,
     chromium_commit: str,
+    jni_registration_srcjar: Path | None = None,
 ) -> None:
     verify_elf64_shared_lib(arm64_so, expected_e_machine=183)
     if x64_so is not None:
@@ -521,6 +535,16 @@ def assemble_aar(
         java_files.append(
             prepare_multi_abi_native_libraries_java(gen_src_dir, native_libs_srcjar)
         )
+        has_jni_reg_srcjar = False
+        if jni_registration_srcjar is not None and jni_registration_srcjar.is_file():
+            with zipfile.ZipFile(jni_registration_srcjar, "r") as sj:
+                for entry_name in sorted(sj.namelist()):
+                    if entry_name.endswith(".java"):
+                        dst_java = gen_src_dir / entry_name
+                        dst_java.parent.mkdir(parents=True, exist_ok=True)
+                        dst_java.write_bytes(sj.read(entry_name))
+                        java_files.append(dst_java)
+                        has_jni_reg_srcjar = True
 
         argfile = work / "javac_sources.txt"
         argfile.write_text("\n".join(str(p) for p in java_files) + "\n", encoding="utf-8")
@@ -543,6 +567,11 @@ def assemble_aar(
             with zipfile.ZipFile(orig_classes_jar, "r") as in_jar:
                 for info in sorted(in_jar.infolist(), key=lambda i: i.filename):
                     if info.is_dir() or is_excluded_jar_entry(info.filename):
+                        continue
+                    if has_jni_reg_srcjar and (
+                        info.filename == "org/jni_zero/GEN_JNI.class"
+                        or info.filename.startswith("org/jni_zero/GEN_JNI$")
+                    ):
                         continue
                     if info.filename in seen_jar_entries:
                         continue
@@ -851,6 +880,7 @@ def main() -> int:
     parser.add_argument("--pak", type=Path)
     parser.add_argument("--icudtl", type=Path)
     parser.add_argument("--native-libs-srcjar", type=Path, default=None)
+    parser.add_argument("--jni-registration-srcjar", type=Path, default=None)
     parser.add_argument("--javac", default=shutil.which("javac") or "javac")
     parser.add_argument("--output", type=Path, default=Path("cefpack-android.aar"))
     parser.add_argument("--bundle-dir", type=Path, default=Path("cef-bundle"))
@@ -883,6 +913,7 @@ def main() -> int:
         pak_path=args.pak,
         icudtl_path=args.icudtl,
         native_libs_srcjar=args.native_libs_srcjar,
+        jni_registration_srcjar=args.jni_registration_srcjar,
         javac_bin=args.javac,
         output_aar=args.output,
         bundle_dir=args.bundle_dir,

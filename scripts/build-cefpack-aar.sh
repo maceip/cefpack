@@ -468,6 +468,7 @@ python3 "${ROOT}/embedder/assemble_aar.py" \
   --pak "${OUT_ARM64}/cefpack_resources.pak" \
   --icudtl "${OUT_ARM64}/icudtl.dat" \
   --native-libs-srcjar "${OUT_ARM64}/gen/cefpack_webview/cefpack_native_libraries_srcjar.srcjar" \
+  --jni-registration-srcjar "${OUT_ARM64}/gen/cefpack_webview/libcefpack_content__jni_registration.srcjar" \
   --javac "${JAVAC_BIN}" \
   --output "${ROOT}/cefpack-android.aar" \
   --bundle-dir "${CEF_BUNDLE_DIR}"
