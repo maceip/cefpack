@@ -10,7 +10,7 @@
 
 namespace {
 
-bool NativeInitializationHook(
+bool CefpackNativeInitializationHook(
     base::android::LibraryProcessType library_process_type) {
   if (!content::android::OnJNIOnLoadInit()) {
     return false;
@@ -24,6 +24,6 @@ bool NativeInitializationHook(
 
 JNI_EXPORT jint JNI_OnLoad(JavaVM* vm, void* reserved) {
   base::android::InitVM(vm);
-  base::android::SetNativeInitializationHook(NativeInitializationHook);
+  base::android::SetNativeInitializationHook(&CefpackNativeInitializationHook);
   return JNI_VERSION_1_4;
 }

@@ -6,10 +6,9 @@
 
 #include <atomic>
 
-#include "base/files/file_util.h"
+#include "base/base_paths_android.h"
 #include "base/path_service.h"
 #include "base/strings/string_number_conversions.h"
-#include "base/threading/thread_restrictions.h"
 #include "components/keyed_service/content/browser_context_dependency_manager.h"
 #include "components/keyed_service/core/dependency_manager.h"
 #include "components/keyed_service/core/simple_dependency_manager.h"
@@ -23,13 +22,13 @@ std::atomic<uint64_t> g_ephemeral_epoch{1};
 }  // namespace
 
 CefpackBrowserContext::CefpackBrowserContext() {
-  base::ScopedAllowBlocking allow_blocking;
-  base::FilePath cache_dir;
-  if (!base::PathService::Get(base::DIR_CACHE, &cache_dir)) {
-    base::GetTempDir(&cache_dir);
+  base::FilePath base_dir;
+  if (!base::PathService::Get(base::DIR_ANDROID_APP_DATA, &base_dir) &&
+      !base::PathService::Get(base::DIR_CACHE, &base_dir)) {
+    base_dir = base::FilePath("/data/local/tmp");
   }
   uint64_t epoch = g_ephemeral_epoch.fetch_add(1, std::memory_order_relaxed);
-  path_ = cache_dir.AppendASCII("cefpack_otr_" + base::NumberToString(epoch));
+  path_ = base_dir.AppendASCII("cefpack_otr_" + base::NumberToString(epoch));
 
   key_ = std::make_unique<SimpleFactoryKey>(path_, /*is_off_the_record=*/true);
   SimpleKeyMap::GetInstance()->Associate(this, key_.get());
@@ -48,11 +47,6 @@ CefpackBrowserContext::~CefpackBrowserContext() {
   SimpleKeyMap::GetInstance()->Dissociate(this);
 
   ShutdownStoragePartitions();
-
-  if (!path_.empty()) {
-    base::ScopedAllowBlocking allow_blocking;
-    base::DeletePathRecursively(path_);
-  }
 }
 
 base::FilePath CefpackBrowserContext::GetPath() const {

@@ -104,7 +104,6 @@ source_set("cefpack_webview_native") {
     "//base:base_static",
     "//components/embedder_support",
     "//components/embedder_support:user_agent",
-    "//components/embedder_support/android:content_view",
     "//components/embedder_support/android:view",
     "//components/keyed_service/content",
     "//components/keyed_service/core",

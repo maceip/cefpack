@@ -113,8 +113,8 @@ else
 fi
 
 echo "== 4. starting detached AAR build =="
-START="cd ${WORKSPACE} && rm -f build-aar.log && nohup bash -c '${BUILD_COMMAND}; echo CEFPACK-AAR-EXIT:\$?' > build-aar.log 2>&1 &"
-"${LIM}" gradle run --id "${ID}" --no-sync --timeout 300 -- "${START}" || true
+START="cd ${WORKSPACE} && rm -f build-aar.log && setsid bash -c '${BUILD_COMMAND}; echo CEFPACK-AAR-EXIT:\$?' </dev/null >build-aar.log 2>&1 & sleep 1"
+"${LIM}" gradle run --id "${ID}" --no-sync --timeout 60 -- "${START}"
 echo "detached build started in ${WORKSPACE}"
 
 echo "== 5. polling build progress & cgroup memory =="

@@ -76,7 +76,10 @@ fi
 export LD_LIBRARY_PATH="${HOST_TOOLS}/usr/lib/x86_64-linux-gnu:${LD_LIBRARY_PATH:-}"
 export PATH="${DEPOT}:${HOST_TOOLS}/usr/bin:${PATH}"
 
-if [ -d "${SRC}/.git" ] && [ -d "${SRC}/third_party/jdk/current" ] && [ -d "${SRC}/build/linux/debian_bullseye_amd64-sysroot" ]; then
+PINNED_CHROMIUM="2ad9b7f5a86846e0b264090723a6a78964bb84c4"
+if [ "$(git -C "${SRC}" rev-parse HEAD 2>/dev/null || true)" = "${PINNED_CHROMIUM}" ] && \
+   [ -d "${SRC}/third_party/jdk/current" ] && \
+   [ -d "${SRC}/build/linux/debian_bullseye_amd64-sysroot" ]; then
   echo "== [2/8] Warm Chromium 156 checkout + sysroot detected; resetting modified files =="
   git -C "${SRC}" checkout -- .
 else
@@ -158,8 +161,31 @@ echo "== [4/8] Preparing clean Chromium tree + cefpack_webview embedder =="
 git -C "${SRC}" checkout -- .
 git -C "${SRC}" apply "${ROOT}/crates/cefpack/patches/chromium-android-lld-workers.patch"
 
-rm -rf "${SRC}/cefpack_webview"
-cp -R "${ROOT}/embedder/cefpack_webview" "${SRC}/cefpack_webview"
+python3 - "${ROOT}/embedder/cefpack_webview" "${SRC}/cefpack_webview" <<'PY'
+import shutil
+import sys
+from pathlib import Path
+
+src_dir, dst_dir = Path(sys.argv[1]), Path(sys.argv[2])
+dst_dir.mkdir(parents=True, exist_ok=True)
+expected = set()
+for item in src_dir.rglob("*"):
+    rel = item.relative_to(src_dir)
+    expected.add(rel)
+    target = dst_dir / rel
+    if item.is_dir():
+        target.mkdir(parents=True, exist_ok=True)
+    elif not target.exists() or target.read_bytes() != item.read_bytes():
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(item, target)
+for existing in sorted(dst_dir.rglob("*"), reverse=True):
+    rel = existing.relative_to(dst_dir)
+    if rel not in expected:
+        if existing.is_file() or existing.is_symlink():
+            existing.unlink()
+        elif existing.is_dir():
+            existing.rmdir()
+PY
 
 python3 - "${SRC}/BUILD.gn" <<'PY'
 import sys
@@ -178,6 +204,20 @@ if (cefpack_standalone_aar) {
     deps = [ "//cefpack_webview:cefpack_webview_all" ]
   }
 
+  copy("layout_test_data_mojo_bindings") {
+    testonly = true
+    sources = [ "$root_gen_dir/mojo/public/js/mojo_bindings.js" ]
+    outputs = [ "$root_gen_dir/layout_test_data/mojo/public/js/mojo_bindings.js" ]
+    deps = [ "//mojo/public/js:bindings" ]
+  }
+
+  copy("layout_test_data_mojo_bindings_lite") {
+    testonly = true
+    sources = [ "$root_gen_dir/mojo/public/js/mojo_bindings_lite.js" ]
+    outputs = [ "$root_gen_dir/layout_test_data/mojo/public/js/mojo_bindings_lite.js" ]
+    deps = [ "//mojo/public/js:bindings_lite" ]
+  }
+
   assert(current_toolchain == default_toolchain)
   _cefpack_lines = [
                      "Generated during 'gn gen' by //BUILD.gn (cefpack_standalone_aar).",
@@ -189,18 +229,84 @@ if (cefpack_standalone_aar) {
 build_gn.write_text(wrapped, encoding="utf-8")
 PY
 
-echo "== [5/8] Running Chromium lastchange & GPU/Skia/Dawn version hooks =="
-(
-  cd "${CEF_SOURCE_ROOT}"
-  python3 src/build/util/lastchange.py -o src/build/util/LASTCHANGE
-  python3 src/build/util/lastchange.py -m GPU_LISTS_VERSION --revision-id-only \
-    --header src/gpu/config/gpu_lists_version.h
-  python3 src/build/util/lastchange.py -m SKIA_COMMIT_HASH -s src/third_party/skia \
-    --header src/skia/ext/skia_commit_hash.h
-  python3 src/build/util/lastchange.py -m DAWN_COMMIT_HASH -s src/third_party/dawn \
-    --revision src/gpu/webgpu/DAWN_VERSION \
-    --header src/gpu/webgpu/dawn_commit_hash.h
-)
+echo "== [5/8] Running Chromium lastchange & GPU/Skia/Dawn version hooks + cgroup CPU shim =="
+if [ ! -f "${SRC}/build/util/LASTCHANGE" ] || \
+   [ ! -f "${SRC}/gpu/config/gpu_lists_version.h" ] || \
+   [ ! -f "${SRC}/skia/ext/skia_commit_hash.h" ] || \
+   [ ! -f "${SRC}/gpu/webgpu/dawn_commit_hash.h" ]; then
+  (
+    cd "${CEF_SOURCE_ROOT}"
+    python3 src/build/util/lastchange.py -o src/build/util/LASTCHANGE
+    python3 src/build/util/lastchange.py -m GPU_LISTS_VERSION --revision-id-only \
+      --header src/gpu/config/gpu_lists_version.h
+    python3 src/build/util/lastchange.py -m SKIA_COMMIT_HASH -s src/third_party/skia \
+      --header src/skia/ext/skia_commit_hash.h
+    python3 src/build/util/lastchange.py -m DAWN_COMMIT_HASH -s src/third_party/dawn \
+      --revision src/gpu/webgpu/DAWN_VERSION \
+      --header src/gpu/webgpu/dawn_commit_hash.h
+  )
+fi
+
+# Cap reported host CPUs/RAM via LD_PRELOAD so vpython3 (e.g. Blink generate_bindings.py)
+# never spawns 96 workers inside a 16 GiB Kubernetes container on a 96-core host.
+CAP_SHIM="${TOOLCHAIN}/libcap_cpus.so"
+CLANG_HOST="${SRC}/third_party/llvm-build/Release+Asserts/bin/clang"
+if [ -x "${CLANG_HOST}" ]; then
+  cat > "${TOOLCHAIN}/cap_cpus.c" <<'CEOF'
+#define _GNU_SOURCE
+#include <dlfcn.h>
+#include <sched.h>
+#include <string.h>
+#include <unistd.h>
+
+long sysconf(int name) {
+  static long (*real_sysconf)(int) = 0;
+  if (!real_sysconf) {
+    real_sysconf = (long (*)(int))dlsym(RTLD_NEXT, "sysconf");
+  }
+  if (name == _SC_NPROCESSORS_ONLN || name == _SC_NPROCESSORS_CONF) {
+    return 2;
+  }
+  if (name == _SC_PHYS_PAGES) {
+    long ps = real_sysconf(_SC_PAGESIZE);
+    if (ps > 0) {
+      return (10L * 1024L * 1024L * 1024L) / ps;
+    }
+  }
+  return real_sysconf(name);
+}
+
+int sched_getaffinity(pid_t pid, size_t cpusetsize, cpu_set_t *mask) {
+  static int (*real_sga)(pid_t, size_t, cpu_set_t *) = 0;
+  if (!real_sga) {
+    real_sga = (int (*)(pid_t, size_t, cpu_set_t *))dlsym(RTLD_NEXT, "sched_getaffinity");
+  }
+  int rc = real_sga(pid, cpusetsize, mask);
+  if (rc == 0 && mask && cpusetsize >= sizeof(cpu_set_t)) {
+    cpu_set_t capped;
+    CPU_ZERO(&capped);
+    int count = 0;
+    for (int i = 0; i < CPU_SETSIZE; ++i) {
+      if (CPU_ISSET(i, mask)) {
+        CPU_SET(i, &capped);
+        if (++count >= 2) {
+          break;
+        }
+      }
+    }
+    if (count > 0) {
+      memcpy(mask, &capped, sizeof(cpu_set_t));
+    }
+  }
+  return rc;
+}
+CEOF
+  "${CLANG_HOST}" --sysroot="${SRC}/build/linux/debian_bullseye_amd64-sysroot" \
+    -shared -fPIC -O2 "${TOOLCHAIN}/cap_cpus.c" -o "${CAP_SHIM}" -ldl
+fi
+if [ -f "${CAP_SHIM}" ]; then
+  export LD_PRELOAD="${CAP_SHIM}${LD_PRELOAD:+:${LD_PRELOAD}}"
+fi
 
 GN_BIN="${SRC}/buildtools/linux64/gn"
 [ -x "${GN_BIN}" ] || GN_BIN="$(command -v gn)"
@@ -208,7 +314,7 @@ NINJA_BIN="${SRC}/third_party/ninja/ninja"
 [ -x "${NINJA_BIN}" ] || NINJA_BIN="$(command -v ninja)"
 
 export CHROMIUM_LLD_WORKERS="${CHROMIUM_LLD_WORKERS:-2}"
-COMPILE_JOBS="${CEF_AAR_JOBS:-6}"
+COMPILE_JOBS="${CEF_AAR_JOBS:-4}"
 
 write_args_gn() {
   local out_dir="$1"
@@ -230,8 +336,10 @@ use_thin_lto = false
 
 is_clang = true
 use_lld = true
+use_siso = false
 use_sysroot = true
 use_remoteexec = false
+concurrent_links = 1
 clang_use_chrome_plugins = false
 treat_warnings_as_errors = false
 
@@ -239,6 +347,16 @@ v8_use_external_startup_data = false
 icu_use_data_file = true
 enable_jni_multiplexing = false
 use_hashed_jni_names = false
+enable_openxr = false
+enable_arcore = false
+enable_cardboard = false
+enable_vr = false
+enable_remoting = false
+enable_reporting = false
+enable_printing = false
+enable_pdf = false
+enable_plugins = false
+enable_screen_ai_service = false
 proprietary_codecs = false
 ffmpeg_branding = "Chromium"
 EOF
@@ -259,6 +377,19 @@ write_args_gn "${OUT_ARM64}" "arm64"
   cd "${SRC}"
   "${GN_BIN}" gen "out/arm64" --root-target=//cefpack_webview:cefpack_webview_all
 )
+echo "== [6a/8] Pre-verifying cefpack_webview C++, Java, and JNI targets =="
+run_ninja_resilient "${OUT_ARM64}" \
+  cefpack_webview:cefpack_webview_java \
+  cefpack_webview:cefpack_jni_registration_java \
+  obj/cefpack_webview/cefpack_webview_native/cefpack_browser_context.o \
+  obj/cefpack_webview/cefpack_webview_native/cefpack_content_browser_client.o \
+  obj/cefpack_webview/cefpack_webview_native/cefpack_content_client.o \
+  obj/cefpack_webview/cefpack_webview_native/cefpack_devtools_bridge.o \
+  obj/cefpack_webview/cefpack_webview_native/cefpack_engine.o \
+  obj/cefpack_webview/cefpack_webview_native/cefpack_main_delegate.o \
+  obj/cefpack_webview/cefpack_webview_native/cefpack_session.o \
+  obj/cefpack_webview/cefpack_webview_native/cefpack_throttles.o \
+  obj/cefpack_webview/libcefpack_content/cefpack_library_loader.o
 run_ninja_resilient "${OUT_ARM64}" cefpack_webview:cefpack_webview_all
 
 echo "== [7/8] Configuring & compiling x86_64 libcefpack_content.so =="

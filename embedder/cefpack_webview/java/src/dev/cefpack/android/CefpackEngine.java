@@ -100,7 +100,7 @@ public final class CefpackEngine {
                 CommandLine.init(
                         new String[] {
                             "cefpack",
-                            "--disable-features=PartitionAllocMemoryTagging,AutofillServerCommunication,OptimizationHints,Translate,MediaRouter,WebRtcHideLocalIpsWithMdns",
+                            "--disable-features=PartitionAllocMemoryTagging,AutofillServerCommunication,OptimizationHints,Translate,MediaRouter,WebRtcHideLocalIpsWithMdns,HttpsUpgrades,HttpsFirstBalancedModeAutoEnable",
                             "--host-resolver-rules=MAP * ~NOTFOUND , EXCLUDE 127.0.0.1",
                             "--dns-prefetch-disable",
                             "--no-pings",

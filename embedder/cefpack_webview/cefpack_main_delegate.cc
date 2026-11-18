@@ -13,6 +13,7 @@
 #include "base/files/file.h"
 #include "base/files/memory_mapped_file.h"
 #include "base/logging.h"
+#include "base/logging/logging_settings.h"
 #include "base/posix/global_descriptors.h"
 #include "base/process/current_process.h"
 #include "cefpack_webview/cefpack_content_browser_client.h"
@@ -31,7 +32,8 @@ namespace {
 
 constexpr char kDisabledFeatures[] =
     "PartitionAllocMemoryTagging,AutofillServerCommunication,"
-    "OptimizationHints,Translate,MediaRouter,WebRtcHideLocalIpsWithMdns";
+    "OptimizationHints,Translate,MediaRouter,WebRtcHideLocalIpsWithMdns,"
+    "HttpsUpgrades,HttpsFirstBalancedModeAutoEnable";
 
 void AppendHardeningSwitches(base::CommandLine& command_line) {
   std::string existing_disabled =
