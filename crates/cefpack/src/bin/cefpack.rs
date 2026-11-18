@@ -98,9 +98,19 @@ fn run(arguments: &[String]) -> Result<()> {
             // The patches that the service carries for the tree of Chromium.
             // A build that is not the build of the service — the
             // measurement of the link — uses the same tree.
+            //
+            // The patches of the build of the content alone are carried
+            // with `--content-only true`: they take the browser of Chromium
+            // out of the build, and the build of the engine of CEF is the
+            // build of that browser.
             let plan = plan_of_the_checkout()?;
-            build::apply_chromium_patch(&plan)?;
-            println!("the patches of the service are applied");
+            let content_only = rest.says_yes("--content-only");
+            build::apply_chromium_patch_for(&plan, content_only)?;
+            if content_only {
+                println!("the patches of the content alone are applied");
+            } else {
+                println!("the patches of the service are applied");
+            }
             Ok(())
         }
         "lastchange" => {
@@ -198,6 +208,18 @@ impl Arguments {
     /// The path at an index.
     fn positional(&self, index: usize) -> Option<String> {
         self.positionals.get(index).cloned()
+    }
+
+    /// Whether an option is named on the command line.
+    ///
+    /// The option carries a value, because every option of the command
+    /// carries one; the value of this one says whether the tree is the
+    /// tree of the build of the content alone.
+    fn says_yes(&self, name: &str) -> bool {
+        match self.option(name) {
+            Some(value) => value == "true" || value == "yes",
+            None => false,
+        }
     }
 
     /// The value of an option.

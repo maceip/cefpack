@@ -166,14 +166,26 @@ def the_files(root: pathlib.Path):
 
 
 def the_source(root: pathlib.Path, path: pathlib.Path) -> str:
-    """The file as the tree holds it.
+    """The file of the pinned revision.
 
     The tree that the service patches is the tree of CEF with the patches
     of CEF on it, and the patches of CEF change many of the files of
-    Chromium.  A patch that is made against the files of the pinned
-    revision of Chromium does not fit that tree.
+    Chromium.  The patch of the assertions is made against the files of
+    the pinned revision of Chromium: when it does not fit, the service
+    gives the file back to git and tries again, and that is what the
+    patch is made for.
     """
-    return path.read_text()
+    import subprocess
+
+    name = str(path.relative_to(root))
+    done = subprocess.run(
+        ["git", "show", "HEAD:" + name],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return done.stdout
 
 
 def the_known_files(root: pathlib.Path) -> set:

@@ -62,7 +62,7 @@ cd "${SRC}"
 # that relax the assertions of Chromium that hold a desktop build.  The
 # measurement and the service have to build the same tree, and the patches
 # are part of it.
-"${ROOT}/target/release/cefpack" patch
+"${ROOT}/target/release/cefpack" patch --content-only true
 
 if ! git apply --check "${ROOT}/scripts/content-link-measure.patch" 2>/dev/null; then
   git apply "${ROOT}/scripts/content-link-measure.patch"

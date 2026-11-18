@@ -351,6 +351,23 @@ fn apply_patches(plan: &Plan, cef_dir: &Path) -> Result<()> {
 /// — the measurement of the link, for one — uses the same tree as the
 /// service does.
 pub fn apply_chromium_patch(plan: &Plan) -> Result<()> {
+    apply_chromium_patch_for(plan, false)
+}
+
+/// Apply the patches of the service to the tree of Chromium.
+///
+/// The build of the content alone needs patches that the build of the
+/// engine of CEF does not: the engine of CEF is the browser of Chromium,
+/// and the browser of Chromium is built for Android by the patches of
+/// CEF.  The patches of the content alone take the browser out of the
+/// build, and they are made against the files of the pinned revision of
+/// Chromium — which is not the tree that the patches of CEF leave
+/// behind.
+///
+/// So the two builds get two trees: the build of the engine takes the
+/// tree of CEF, and the build of the content alone takes the tree of
+/// Chromium with the patches of the content alone on it.
+pub fn apply_chromium_patch_for(plan: &Plan, content_only: bool) -> Result<()> {
     let chromium_dir = plan.chromium_dir();
     patch::apply_patch(&chromium_dir, patch::CHROMIUM_ANDROID_PATCH, "Chromium")?;
 
@@ -400,17 +417,32 @@ pub fn apply_chromium_patch(plan: &Plan) -> Result<()> {
         &["if (enable_remoting && target_os != \"android\" &&"],
     )?;
 
+    if content_only {
+        apply_the_patches_of_the_content_alone(&chromium_dir)?;
+    }
+
+    Ok(())
+}
+
+/// The patches of the build of the content alone.
+///
+/// The build of the content alone is not the build of the engine of CEF:
+/// it has no browser in it, and the files of the desktop are read — GN
+/// reads a file when a target in it is named — but not built.  The
+/// assertions that say that a file is a file of the desktop are relaxed
+/// for that build, and only for it.
+fn apply_the_patches_of_the_content_alone(chromium_dir: &Path) -> Result<()> {
     // The fifth patch of the service: the root of the tree, which for a
     // build of the content alone is a group with nothing in it.  It is
     // applied after the patch of the target, because it is made against
     // the file that the patch of the target leaves behind.
     patch::apply_patch(
-        &chromium_dir,
+        chromium_dir,
         patch::CHROMIUM_CONTENT_ONLY_ROOT_PATCH,
         "content-only-root",
     )?;
     patch::verify(
-        &chromium_dir,
+        chromium_dir,
         "BUILD.gn",
         &["if (cef_content_only) {", "group(\"cef_content_only\")"],
     )?;
@@ -420,12 +452,12 @@ pub fn apply_chromium_patch(plan: &Plan) -> Result<()> {
     // the desktop, so that the give-back of a file that does not fit does
     // not take the assertions with it.
     patch::apply_patch(
-        &chromium_dir,
+        chromium_dir,
         patch::CHROMIUM_CONTENT_ONLY_ASSERTS_PATCH,
         "content-only-asserts",
     )?;
     patch::verify(
-        &chromium_dir,
+        chromium_dir,
         "chrome/test/permissions/BUILD.gn",
         &["assert((!is_android) || cef_content_only)"],
     )?;
@@ -434,22 +466,22 @@ pub fn apply_chromium_patch(plan: &Plan) -> Result<()> {
     // the content layer reaches for — the modal of the constrained window
     // and the dialog of the web view.
     patch::apply_patch(
-        &chromium_dir,
+        chromium_dir,
         patch::CHROMIUM_CONTENT_ONLY_WINDOWS_PATCH,
         "content-only-windows",
     )?;
     patch::verify(
-        &chromium_dir,
+        chromium_dir,
         "components/constrained_window/BUILD.gn",
         &["if (!cef_content_only) {", "\"//components/web_modal\""],
     )?;
     patch::verify(
-        &chromium_dir,
+        chromium_dir,
         "ui/views/controls/webview/BUILD.gn",
         &["if (!cef_content_only) {", "\"//ui/web_dialogs\""],
     )?;
     patch::verify(
-        &chromium_dir,
+        chromium_dir,
         "ui/events/ozone/evdev/BUILD.gn",
         &["if (!cef_content_only) {", "\"//chrome/browser/ui\""],
     )?;
@@ -457,13 +489,9 @@ pub fn apply_chromium_patch(plan: &Plan) -> Result<()> {
     // The seventh patch of the service: the user interface of the desktop
     // browser, which the build of the content *reads* — through the
     // resources of the browser — and which is not built for Android.
-    patch::apply_patch(
-        &chromium_dir,
-        patch::CHROMIUM_DESKTOP_UI_PATCH,
-        "desktop-ui",
-    )?;
+    patch::apply_patch(chromium_dir, patch::CHROMIUM_DESKTOP_UI_PATCH, "desktop-ui")?;
     patch::verify(
-        &chromium_dir,
+        chromium_dir,
         "chrome/browser/ui/BUILD.gn",
         &["if (toolkit_views && target_os != \"android\") {"],
     )?;
@@ -472,12 +500,12 @@ pub fn apply_chromium_patch(plan: &Plan) -> Result<()> {
     // the user interface of the desktop browser, and the file that holds
     // it cannot be read for Android.
     patch::apply_patch(
-        &chromium_dir,
+        chromium_dir,
         patch::CHROMIUM_DESKTOP_BROWSER_PATCH,
         "desktop-browser",
     )?;
     patch::verify(
-        &chromium_dir,
+        chromium_dir,
         "chrome/BUILD.gn",
         &["if (target_os != \"android\") {", "//chrome/browser/ui"],
     )?;
@@ -485,17 +513,17 @@ pub fn apply_chromium_patch(plan: &Plan) -> Result<()> {
     // The seventh patch of the service: the resources of the browser, which
     // the content layer depends on, and which bring the browser with them.
     patch::apply_patch(
-        &chromium_dir,
+        chromium_dir,
         patch::CHROMIUM_CONTENT_ONLY_PATCH,
         "content-only",
     )?;
     patch::verify(
-        &chromium_dir,
+        chromium_dir,
         "build/config/BUILDCONFIG.gn",
         &["cef_content_only = false"],
     )?;
     patch::verify(
-        &chromium_dir,
+        chromium_dir,
         "ui/base/BUILD.gn",
         &["if (!cef_content_only) {", "\"//chrome:resources\""],
     )?;
@@ -503,12 +531,12 @@ pub fn apply_chromium_patch(plan: &Plan) -> Result<()> {
     // The eighth patch of the service: the group that says what the
     // browser is made of, which is empty for a build of the content alone.
     patch::apply_patch(
-        &chromium_dir,
+        chromium_dir,
         patch::CHROMIUM_CONTENT_ONLY_BROWSER_PATCH,
         "content-only-browser",
     )?;
     patch::verify(
-        &chromium_dir,
+        chromium_dir,
         "chrome/BUILD.gn",
         &["if (cef_content_only) {", "public_deps = []"],
     )?;
@@ -516,17 +544,17 @@ pub fn apply_chromium_patch(plan: &Plan) -> Result<()> {
     // The ninth patch of the service: the two places where the content
     // layer reaches for the window of the desktop.
     patch::apply_patch(
-        &chromium_dir,
+        chromium_dir,
         patch::CHROMIUM_CONTENT_ONLY_DESKTOP_PATCH,
         "content-only-desktop",
     )?;
     patch::verify(
-        &chromium_dir,
+        chromium_dir,
         "extensions/browser/BUILD.gn",
         &["if (!cef_content_only) {", "\"//components/web_modal\""],
     )?;
     patch::verify(
-        &chromium_dir,
+        chromium_dir,
         "chrome/browser/media/webrtc/BUILD.gn",
         &["if (!cef_content_only) {", "browser_widget"],
     )?;
