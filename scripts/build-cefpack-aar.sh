@@ -381,6 +381,7 @@ use_thin_lto = false
 
 is_clang = true
 use_lld = true
+use_mold = false
 use_siso = false
 use_sysroot = true
 use_remoteexec = false
