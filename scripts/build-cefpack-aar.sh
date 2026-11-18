@@ -232,14 +232,6 @@ v8_use_external_startup_data = false
 icu_use_data_file = true
 enable_jni_multiplexing = false
 use_hashed_jni_names = false
-
-enable_vr = false
-enable_remoting = false
-enable_reporting = false
-enable_printing = false
-enable_pdf = false
-enable_plugins = false
-enable_screen_ai_service = false
 proprietary_codecs = false
 ffmpeg_branding = "Chromium"
 EOF
