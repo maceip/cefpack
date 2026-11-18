@@ -289,6 +289,16 @@ pub fn apply_patch(tree: &Path, patch: &str, name: &str) -> Result<()> {
     let file = tree.join(format!(".cefpack-{name}.patch"));
     std::fs::write(&file, patch).with_context(|| format!("cannot write {}", file.display()))?;
 
+    // A lock of git that is left behind by a git that was killed stops
+    // every git that comes after it, and the message it gives says
+    // nothing about the patch.  The service is the only one that works in
+    // the tree, so a lock that is there is the lock of a git that is not
+    // running any more.
+    let lock = tree.join(".git/index.lock");
+    if lock.exists() {
+        let _ = std::fs::remove_file(&lock);
+    }
+
     let git = |args: &[&str]| {
         Command::new("git")
             .current_dir(&tree)
