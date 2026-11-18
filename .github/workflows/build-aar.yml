@@ -30,7 +30,7 @@ jobs:
     timeout-minutes: 360
     env:
       LIM_API_KEY: ${{ secrets.LIMRUN_API_KEY }}
-      LIMRUN_TOOLS_DIR: ${{ github.workspace }}/tools
+      LIMRUN_TOOLS_DIR: /tmp/limrun-tools
       CEF_MIN_CREDIT: "0"
       CEF_SANDBOX_KEY: ${{ inputs.sandbox_key || 'v020' }}
     steps:

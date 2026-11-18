@@ -76,11 +76,18 @@ fi
 export LD_LIBRARY_PATH="${HOST_TOOLS}/usr/lib/x86_64-linux-gnu:${LD_LIBRARY_PATH:-}"
 export PATH="${DEPOT}:${HOST_TOOLS}/usr/bin:${PATH}"
 
-cargo build --release -j 4
-CEFPACK="${ROOT}/target/release/cefpack"
-
-echo "== [2/8] Fetching & syncing pinned Chromium 156 sources + sysroot =="
-"${CEFPACK}" fetch
+if [ -d "${SRC}/.git" ] && [ -d "${SRC}/third_party/jdk/current" ] && [ -d "${SRC}/build/linux/debian_bullseye_amd64-sysroot" ]; then
+  echo "== [2/8] Warm Chromium 156 checkout + sysroot detected; resetting modified files =="
+  git -C "${SRC}" checkout -- .
+else
+  cargo build --release -j 4
+  CEFPACK="${ROOT}/target/release/cefpack"
+  if [ -d "${SRC}/.git" ]; then
+    git -C "${SRC}" checkout -- . || true
+  fi
+  echo "== [2/8] Fetching & syncing pinned Chromium 156 sources + sysroot =="
+  "${CEFPACK}" fetch
+fi
 
 # Prefer Chromium's hermetic JDK 25 once synced.
 if [ -x "${SRC}/third_party/jdk/current/bin/javac" ]; then

@@ -75,7 +75,9 @@ for item in items:
         sys.exit(0)
 ' "cefpack-aar-${SANDBOX_KEY}")"
 
+REUSING=0
 if [ -n "${ID}" ]; then
+  REUSING=1
   echo "reusing existing warm sandbox id: ${ID}"
 else
   CREATED="$("${LIM}" gradle create --display-name "cefpack-aar-${SANDBOX_KEY}" --hard-timeout "${TIMEOUT}s" --inactivity-timeout "${TIMEOUT}s" --reuse-if-exists --json)"
@@ -95,11 +97,20 @@ cleanup() {
 }
 trap cleanup EXIT
 
-echo "== 3. syncing repository into sandbox =="
-"${LIM}" gradle sync "${ROOT}" --id "${ID}"
-
 WORKSPACE="/home/limrun/workspaces/$(basename "${ROOT}")"
 LOG="${WORKSPACE}/build-aar.log"
+COMMIT_REF="${GITHUB_SHA:-$(git rev-parse HEAD)}"
+
+echo "== 3. syncing repository into sandbox (reusing=${REUSING}, ref=${COMMIT_REF}) =="
+if [ "${REUSING}" = "1" ]; then
+  # Warm sandboxes hold ~500,000 Chromium files in ${WORKSPACE}/cef-source, which causes
+  # `lim gradle sync` directory diffing to exceed Node undici's 300s headersTimeout.
+  # Stream the exact commit tarball directly into ${WORKSPACE} in <2s instead.
+  "${LIM}" gradle run --id "${ID}" --no-sync --timeout 180 -- \
+    "mkdir -p ${WORKSPACE} && curl -fsSL --retry 3 https://codeload.github.com/maceip/cefpack/tar.gz/${COMMIT_REF} | tar -xz --strip-components=1 -C ${WORKSPACE} && chmod +x ${WORKSPACE}/scripts/*.sh"
+else
+  "${LIM}" gradle sync "${ROOT}" --id "${ID}"
+fi
 
 echo "== 4. starting detached AAR build =="
 START="cd ${WORKSPACE} && rm -f build-aar.log && nohup bash -c '${BUILD_COMMAND}; echo CEFPACK-AAR-EXIT:\$?' > build-aar.log 2>&1 &"
