@@ -446,6 +446,7 @@ run_ninja_resilient "${OUT_ARM64}" \
   obj/cefpack_webview/cefpack_webview_native/cefpack_throttles.o \
   obj/cefpack_webview/libcefpack_content/cefpack_library_loader.o
 run_ninja_resilient "${OUT_ARM64}" cefpack_webview:cefpack_webview_all
+rm -rf "${OUT_ARM64}/lib.unstripped"
 
 echo "== [7/8] Configuring & compiling x86_64 libcefpack_content.so =="
 write_args_gn "${OUT_X64}" "x64"
@@ -454,6 +455,7 @@ write_args_gn "${OUT_X64}" "x64"
   "${GN_BIN}" gen "out/x64" --root-target=//cefpack_webview:libcefpack_content
 )
 run_ninja_resilient "${OUT_X64}" cefpack_webview:libcefpack_content
+rm -rf "${OUT_X64}/lib.unstripped"
 
 echo "== [8/8] Packaging & auditing multi-ABI cefpack-android.aar + cef-bundle.tar.gz =="
 JAVAC_BIN="${SRC}/third_party/jdk/current/bin/javac"
