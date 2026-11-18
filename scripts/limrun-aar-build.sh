@@ -48,9 +48,40 @@ if [ "${MIN_CREDIT}" -gt 0 ] && [ "${CREDIT}" -lt "${MIN_CREDIT}" ]; then
 fi
 
 echo "== 2. creating or reusing Limrun sandbox (cefpack-aar-${SANDBOX_KEY}) =="
-CREATED="$("${LIM}" gradle create --display-name "cefpack-aar-${SANDBOX_KEY}" --hard-timeout "${TIMEOUT}s" --inactivity-timeout "${TIMEOUT}s" --reuse-if-exists --json)"
-ID="$(printf '%s' "${CREATED}" | python3 -c 'import json,sys; print(json.load(sys.stdin)["metadata"]["id"])')"
-echo "sandbox id: ${ID}"
+LISTED="$("${LIM}" gradle list --json 2>/dev/null || echo "[]")"
+ID="$(printf '%s' "${LISTED}" | python3 -c '
+import json, sys
+target = sys.argv[1]
+raw = sys.stdin.read().strip()
+items = []
+if raw:
+    try:
+        parsed = json.loads(raw)
+        items = parsed if isinstance(parsed, list) else parsed.get("items", [parsed])
+    except Exception:
+        for line in raw.splitlines():
+            line = line.strip()
+            if line.startswith("{"):
+                try:
+                    items.append(json.loads(line))
+                except Exception:
+                    pass
+for item in items:
+    meta = item.get("metadata", {}) if isinstance(item, dict) else {}
+    name = meta.get("displayName") or item.get("displayName") or ""
+    sid = meta.get("id") or item.get("id") or ""
+    if name == target and sid:
+        print(sid)
+        sys.exit(0)
+' "cefpack-aar-${SANDBOX_KEY}")"
+
+if [ -n "${ID}" ]; then
+  echo "reusing existing warm sandbox id: ${ID}"
+else
+  CREATED="$("${LIM}" gradle create --display-name "cefpack-aar-${SANDBOX_KEY}" --hard-timeout "${TIMEOUT}s" --inactivity-timeout "${TIMEOUT}s" --reuse-if-exists --json)"
+  ID="$(printf '%s' "${CREATED}" | python3 -c 'import json,sys; print(json.load(sys.stdin)["metadata"]["id"])')"
+  echo "created new sandbox id: ${ID}"
+fi
 
 cleanup() {
   local exit_code=$?
