@@ -49,8 +49,9 @@ fi
 
 echo "== 2. creating or reusing Limrun sandbox (cefpack-aar-${SANDBOX_KEY}) =="
 LISTED="$("${LIM}" gradle list --json 2>/dev/null || echo "[]")"
-ID="$(printf '%s' "${LISTED}" | python3 -c '
-import json, sys
+SANDBOX_SCAN="$(printf '%s' "${LISTED}" | python3 -c '
+import datetime, json, re, sys
+
 target = sys.argv[1]
 raw = sys.stdin.read().strip()
 items = []
@@ -66,21 +67,82 @@ if raw:
                     items.append(json.loads(line))
                 except Exception:
                     pass
+
+def parse_dur_sec(val):
+    if not val or not isinstance(val, str):
+        return None
+    total = 0
+    matched = False
+    for num, unit in re.findall(r"(\d+)([smhd])", val.strip()):
+        matched = True
+        n = int(num)
+        total += n * {"s": 1, "m": 60, "h": 3600, "d": 86400}[unit]
+    return total if matched else None
+
+def parse_iso(val):
+    if not val or not isinstance(val, str):
+        return None
+    try:
+        return datetime.datetime.fromisoformat(val.replace("Z", "+00:00"))
+    except Exception:
+        return None
+
+now = datetime.datetime.now(datetime.timezone.utc)
+reuse_id = ""
+stale_ids = []
+
 for item in items:
-    meta = item.get("metadata", {}) if isinstance(item, dict) else {}
+    if not isinstance(item, dict):
+        continue
+    meta = item.get("metadata") or {}
+    spec = item.get("spec") or {}
+    status = item.get("status") or {}
     name = meta.get("displayName") or item.get("displayName") or ""
     sid = meta.get("id") or item.get("id") or ""
-    if name == target and sid:
-        print(sid)
-        sys.exit(0)
+    if not sid or not name.startswith("cefpack-aar-"):
+        continue
+    state = str(status.get("state") or status.get("phase") or item.get("state") or "").lower()
+    if state in ("terminated", "terminating", "deleted", "failed"):
+        continue
+    created = parse_iso(meta.get("createdAt") or item.get("createdAt"))
+    hard_sec = parse_dur_sec(spec.get("hardTimeout"))
+    remaining = None
+    if created is not None and hard_sec is not None:
+        remaining = (created + datetime.timedelta(seconds=hard_sec) - now).total_seconds()
+    if name == target:
+        if remaining is not None and remaining < 7200:
+            stale_ids.append(sid)
+        elif not reuse_id:
+            reuse_id = sid
+    else:
+        stale_ids.append(sid)
+
+print("REUSE=" + reuse_id)
+print("STALE=" + ",".join(stale_ids))
 ' "cefpack-aar-${SANDBOX_KEY}")"
+
+ID="$(printf '%s\n' "${SANDBOX_SCAN}" | sed -n 's/^REUSE=//p' | head -n 1)"
+STALE_IDS="$(printf '%s\n' "${SANDBOX_SCAN}" | sed -n 's/^STALE=//p' | head -n 1)"
+
+if [ -n "${STALE_IDS}" ]; then
+  IFS=',' read -r -a STALE_ARR <<< "${STALE_IDS}"
+  for OLD_ID in "${STALE_ARR[@]}"; do
+    if [ -n "${OLD_ID}" ]; then
+      echo "deleting superseded/expiring sandbox ${OLD_ID}..."
+      "${LIM}" gradle delete "${OLD_ID}" >/dev/null 2>&1 || true
+    fi
+  done
+fi
 
 REUSING=0
 if [ -n "${ID}" ]; then
   REUSING=1
   echo "reusing existing warm sandbox id: ${ID}"
 else
-  CREATED="$("${LIM}" gradle create --display-name "cefpack-aar-${SANDBOX_KEY}" --hard-timeout "${TIMEOUT}s" --inactivity-timeout "${TIMEOUT}s" --reuse-if-exists --json)"
+  # Use a 12h hard-timeout and 2h inactivity-timeout so active polled builds never
+  # hit a premature 6h wall-clock cutoff across incremental resumes, while idle
+  # sandboxes still auto-expire cleanly.
+  CREATED="$("${LIM}" gradle create --display-name "cefpack-aar-${SANDBOX_KEY}" --hard-timeout "43200s" --inactivity-timeout "7200s" --reuse-if-exists --json)"
   ID="$(printf '%s' "${CREATED}" | python3 -c 'import json,sys; print(json.load(sys.stdin)["metadata"]["id"])')"
   echo "created new sandbox id: ${ID}"
 fi
@@ -103,6 +165,9 @@ COMMIT_REF="${GITHUB_SHA:-$(git rev-parse HEAD)}"
 
 echo "== 3. syncing repository into sandbox (reusing=${REUSING}, ref=${COMMIT_REF}) =="
 if [ "${REUSING}" = "1" ]; then
+  # Stop any lingering detached build from a canceled prior workflow run before updating sources.
+  "${LIM}" gradle run --id "${ID}" --no-sync --timeout 60 -- \
+    "pkill -INT ninja 2>/dev/null || true; sleep 1; pkill -TERM -f build-cefpack-aar.sh 2>/dev/null || true; sleep 1" || true
   # Warm sandboxes hold ~500,000 Chromium files in ${WORKSPACE}/cef-source, which causes
   # `lim gradle sync` directory diffing to exceed Node undici's 300s headersTimeout.
   # Stream the exact commit tarball directly into ${WORKSPACE} in <2s instead.
@@ -113,7 +178,7 @@ else
 fi
 
 echo "== 4. starting detached AAR build =="
-START="cd ${WORKSPACE} && rm -f build-aar.log && setsid bash -c '${BUILD_COMMAND}; echo CEFPACK-AAR-EXIT:\$?' </dev/null >build-aar.log 2>&1 & sleep 1"
+START="cd ${WORKSPACE} && rm -f build-aar.log && setsid bash -c '${BUILD_COMMAND}; echo CEFPACK-AAR-EXIT:\$?' </dev/null >build-aar.log 2>&1 & sleep 2"
 "${LIM}" gradle run --id "${ID}" --no-sync --timeout 60 -- "${START}"
 echo "detached build started in ${WORKSPACE}"
 
@@ -121,9 +186,20 @@ echo "== 5. polling build progress & cgroup memory =="
 DEADLINE=$(( $(date +%s) + TIMEOUT ))
 LAST=""
 DONE=0
+POLL_FAILURES=0
 while [ "$(date +%s)" -lt "${DEADLINE}" ]; do
   sleep "${POLL}"
-  OUT="$("${LIM}" gradle run --id "${ID}" --no-sync --timeout 180 -- "tail -n 12 ${LOG} 2>/dev/null || true; echo \"[cgroup] current=\$(cat /sys/fs/cgroup/memory.current 2>/dev/null || echo ?) peak=\$(cat /sys/fs/cgroup/memory.peak 2>/dev/null || echo ?) max=\$(cat /sys/fs/cgroup/memory.max 2>/dev/null || echo ?)\"" 2>/dev/null || true)"
+  if OUT="$("${LIM}" gradle run --id "${ID}" --no-sync --timeout 180 -- "tail -n 12 ${LOG} 2>/dev/null || true; RUNNING=\$(pgrep -f build-cefpack-aar.sh >/dev/null 2>&1 && echo 1 || echo 0); echo \"[cgroup] running=\${RUNNING} current=\$(cat /sys/fs/cgroup/memory.current 2>/dev/null || echo ?) peak=\$(cat /sys/fs/cgroup/memory.peak 2>/dev/null || echo ?) max=\$(cat /sys/fs/cgroup/memory.max 2>/dev/null || echo ?)\"" 2>&1)"; then
+    POLL_FAILURES=0
+  else
+    POLL_FAILURES=$(( POLL_FAILURES + 1 ))
+    echo "poll warning (${POLL_FAILURES}/5): ${OUT}" >&2
+    if [ "${POLL_FAILURES}" -ge 5 ]; then
+      echo "sandbox ${ID} became unreachable after ${POLL_FAILURES} consecutive poll errors" >&2
+      exit 1
+    fi
+    continue
+  fi
   if [ -n "${OUT}" ] && [ "${OUT}" != "${LAST}" ]; then
     printf '%s\n---\n' "${OUT}"
     LAST="${OUT}"
@@ -137,6 +213,20 @@ while [ "$(date +%s)" -lt "${DEADLINE}" ]; do
       echo "the AAR build failed; dumping last 120 lines of ${LOG}:" >&2
       "${LIM}" gradle run --id "${ID}" --no-sync --timeout 180 -- "tail -n 120 ${LOG}" || true
       exit 1
+      ;;
+    *"[cgroup] running=0 "*)
+      SETTLE="$("${LIM}" gradle run --id "${ID}" --no-sync --timeout 120 -- "tail -n 120 ${LOG} 2>/dev/null || true" 2>/dev/null || true)"
+      case "${SETTLE}" in
+        *CEFPACK-AAR-EXIT:0*)
+          DONE=1
+          break
+          ;;
+        *)
+          echo "build-cefpack-aar.sh exited unexpectedly without CEFPACK-AAR-EXIT:0; last 120 log lines:" >&2
+          printf '%s\n' "${SETTLE}" >&2
+          exit 1
+          ;;
+      esac
       ;;
   esac
 done

@@ -98,7 +98,7 @@ if [ -x "${SRC}/third_party/jdk/current/bin/javac" ]; then
   export PATH="${JAVA_HOME}/bin:${PATH}"
 fi
 
-echo "== [3/8] Starting continuous cgroup page-cache keeper & telemetry =="
+echo "== [3/8] Starting pressure-driven cgroup page-cache keeper & telemetry =="
 python3 - "${CEF_SOURCE_ROOT}" <<'PY' &
 import ctypes
 import os
@@ -106,19 +106,35 @@ import sys
 import time
 
 root = sys.argv[1]
+git_root = os.path.join(root, "src", ".git")
 out_root = os.path.join(root, "src", "out")
 libc = ctypes.CDLL("libc.so.6")
 POSIX_FADV_DONTNEED = 4
 SYNC_FILE_RANGE_WRITE = 2
 
-def evict_dir(target: str, writeback: bool) -> None:
+BINARY_EXTS = (
+    ".o", ".a", ".so", ".rlib", ".rmeta", ".dex",
+    ".jar", ".pak", ".dat", ".toc", ".pack", ".idx",
+)
+
+def cgroup_usage_ratio() -> float:
+    try:
+        cur = int(open("/sys/fs/cgroup/memory.current", "r", encoding="utf-8").read().strip())
+        mraw = open("/sys/fs/cgroup/memory.max", "r", encoding="utf-8").read().strip()
+        if mraw == "max":
+            return 0.0
+        lim = int(mraw)
+        return (cur / lim) if lim > 0 else 0.0
+    except Exception:
+        return 0.0
+
+def evict_dir(target: str, writeback: bool, binary_only: bool) -> None:
     if not os.path.isdir(target):
         return
-    for dirpath, dirnames, filenames in os.walk(target):
-        # Skip .git pack directories after initial eviction to avoid extra metadata churn
-        if ".git" in dirnames:
-            dirnames.remove(".git")
+    for dirpath, _, filenames in os.walk(target):
         for fn in filenames:
+            if binary_only and not fn.endswith(BINARY_EXTS):
+                continue
             p = os.path.join(dirpath, fn)
             try:
                 fd = os.open(p, os.O_RDONLY)
@@ -145,14 +161,15 @@ def evict_dir(target: str, writeback: bool) -> None:
             finally:
                 os.close(fd)
 
-tick = 0
-evict_dir(root, True)
+# Drop .git packfiles once after fetch while keeping C++/Mojo/Blink headers hot in RAM.
+evict_dir(git_root, False, False)
 while True:
-    time.sleep(15)
-    tick += 1
-    evict_dir(out_root, True)
-    if tick % 4 == 0:
-        evict_dir(os.path.join(root, "src"), False)
+    time.sleep(10)
+    ratio = cgroup_usage_ratio()
+    if ratio >= 0.72:
+        evict_dir(out_root, True, True)
+    if ratio >= 0.85:
+        evict_dir(git_root, False, False)
 PY
 KEEPER_PID=$!
 trap 'kill "${KEEPER_PID}" 2>/dev/null || true' EXIT
@@ -304,6 +321,34 @@ CEOF
   "${CLANG_HOST}" --sysroot="${SRC}/build/linux/debian_bullseye_amd64-sysroot" \
     -shared -fPIC -O2 "${TOOLCHAIN}/cap_cpus.c" -o "${CAP_SHIM}" -ldl
 fi
+DETECTED_JOBS="$(python3 - <<'PY'
+import os
+
+cpus = os.cpu_count() or 4
+try:
+    raw = open("/sys/fs/cgroup/cpu.max", "r", encoding="utf-8").read().strip().split()
+    if len(raw) == 2 and raw[0] != "max":
+        quota, period = int(raw[0]), int(raw[1])
+        if quota > 0 and period > 0:
+            cpus = max(1, min(cpus, (quota + period - 1) // period))
+except Exception:
+    pass
+
+mem_gib = 16
+try:
+    mraw = open("/sys/fs/cgroup/memory.max", "r", encoding="utf-8").read().strip()
+    if mraw != "max":
+        mem_gib = max(1, int(mraw) // (1024 ** 3))
+except Exception:
+    pass
+
+max_by_mem = max(2, mem_gib - 6)
+print(max(2, min(cpus, max_by_mem, 8)))
+PY
+)"
+COMPILE_JOBS="${CEF_AAR_JOBS:-${DETECTED_JOBS}}"
+echo "cgroup concurrency: detected_jobs=${DETECTED_JOBS}, compile_jobs=${COMPILE_JOBS}"
+
 if [ -f "${CAP_SHIM}" ]; then
   export LD_PRELOAD="${CAP_SHIM}${LD_PRELOAD:+:${LD_PRELOAD}}"
 fi
@@ -314,7 +359,6 @@ NINJA_BIN="${SRC}/third_party/ninja/ninja"
 [ -x "${NINJA_BIN}" ] || NINJA_BIN="$(command -v ninja)"
 
 export CHROMIUM_LLD_WORKERS="${CHROMIUM_LLD_WORKERS:-2}"
-COMPILE_JOBS="${CEF_AAR_JOBS:-4}"
 
 write_args_gn() {
   local out_dir="$1"
@@ -369,16 +413,16 @@ run_ninja_resilient() {
   if "${NINJA_BIN}" -C "${out_dir}" -j "${COMPILE_JOBS}" "$@"; then
     return 0
   fi
-  echo "ninja -j${COMPILE_JOBS} interrupted/spiked; retrying cleanly at -j3..."
-  if "${NINJA_BIN}" -C "${out_dir}" -j 3 "$@"; then
-    return 0
-  fi
-  echo "ninja -j3 interrupted/spiked; retrying cleanly at -j2..."
-  if "${NINJA_BIN}" -C "${out_dir}" -j 2 "$@"; then
-    return 0
-  fi
-  echo "ninja -j2 interrupted/spiked; retrying cleanly at -j1..."
-  "${NINJA_BIN}" -C "${out_dir}" -j 1 "$@"
+  for fallback_j in 6 4 2 1; do
+    if [ "${fallback_j}" -ge "${COMPILE_JOBS}" ]; then
+      continue
+    fi
+    echo "ninja -C ${out_dir} interrupted/spiked; retrying cleanly at -j${fallback_j}..."
+    if "${NINJA_BIN}" -C "${out_dir}" -j "${fallback_j}" "$@"; then
+      return 0
+    fi
+  done
+  return 1
 }
 
 echo "== [6/8] Configuring & compiling arm64-v8a cefpack_webview_all (jobs=${COMPILE_JOBS}, lld_workers=${CHROMIUM_LLD_WORKERS}) =="
