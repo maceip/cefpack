@@ -49,7 +49,7 @@ public final class CefpackEngine {
     private static volatile boolean sBrowserStarted;
     private static volatile String sPendingProxyServer = "socks5://127.0.0.1:1";
 
-    private static final Map<Activity, ActivityWindowAndroid> sActivityWindows =
+    private static final Map<Activity, IntentRequestTracker> sActivityIntentTrackers =
             new WeakHashMap<>();
 
     private CefpackEngine() {}
@@ -191,23 +191,20 @@ public final class CefpackEngine {
         }
     }
 
-    static synchronized WindowAndroid obtainWindowAndroid(Context context) {
+    static synchronized WindowAndroid createWindowAndroid(Context context) {
         Activity activity = ContextUtils.activityFromContext(context);
         if (activity != null) {
-            ActivityWindowAndroid existing = sActivityWindows.get(activity);
-            if (existing != null) {
-                return existing;
+            IntentRequestTracker tracker = sActivityIntentTrackers.get(activity);
+            if (tracker == null) {
+                tracker = IntentRequestTracker.createFromActivity(activity);
+                sActivityIntentTrackers.put(activity, tracker);
             }
-            IntentRequestTracker tracker = IntentRequestTracker.createFromActivity(activity);
-            ActivityWindowAndroid created =
-                    new ActivityWindowAndroid(
-                            activity,
-                            /* listenToActivityState= */ true,
-                            tracker,
-                            /* insetObserver= */ null,
-                            /* occlusionTrackingAllowed= */ true);
-            sActivityWindows.put(activity, created);
-            return created;
+            return new ActivityWindowAndroid(
+                    activity,
+                    /* listenToActivityState= */ true,
+                    tracker,
+                    /* insetObserver= */ null,
+                    /* occlusionTrackingAllowed= */ true);
         }
         return new WindowAndroid(context, /* trackOcclusion= */ false);
     }

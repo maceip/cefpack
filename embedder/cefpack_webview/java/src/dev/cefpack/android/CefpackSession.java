@@ -142,7 +142,7 @@ public final class CefpackSession {
     }
 
     private final Context mContext;
-    private final WindowAndroid mWindowAndroid;
+    private WindowAndroid mWindowAndroid;
     private final FrameLayout mSurfaceContainer;
     private ContentViewRenderView mRenderView;
     private ContentView mContentView;
@@ -169,7 +169,7 @@ public final class CefpackSession {
             CefpackEngine.initialize(context);
         }
         mContext = context;
-        mWindowAndroid = CefpackEngine.obtainWindowAndroid(context);
+        mWindowAndroid = CefpackEngine.createWindowAndroid(context);
         mSurfaceContainer = new FrameLayout(context);
 
         mRenderView = new ContentViewRenderView(context);
@@ -622,6 +622,10 @@ public final class CefpackSession {
             mRenderView = null;
         }
         mSurfaceContainer.removeAllViews();
+        if (mWindowAndroid != null) {
+            mWindowAndroid.destroy();
+            mWindowAndroid = null;
+        }
         mContentView = null;
         mViewAndroidDelegate = null;
     }
