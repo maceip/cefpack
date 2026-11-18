@@ -114,6 +114,7 @@ source_set("cefpack_webview_native") {
     "//net:net_resources",
     "//net/traffic_annotation",
     "//services/cert_verifier/public/mojom",
+    "//services/media_session/public/mojom",
     "//services/network/public/cpp",
     "//services/network/public/mojom",
     "//skia",

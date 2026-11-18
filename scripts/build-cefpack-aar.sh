@@ -314,7 +314,7 @@ NINJA_BIN="${SRC}/third_party/ninja/ninja"
 [ -x "${NINJA_BIN}" ] || NINJA_BIN="$(command -v ninja)"
 
 export CHROMIUM_LLD_WORKERS="${CHROMIUM_LLD_WORKERS:-2}"
-COMPILE_JOBS="${CEF_AAR_JOBS:-4}"
+COMPILE_JOBS="${CEF_AAR_JOBS:-6}"
 
 write_args_gn() {
   local out_dir="$1"
@@ -324,6 +324,7 @@ write_args_gn() {
 target_os = "android"
 target_cpu = "${cpu}"
 cefpack_standalone_aar = true
+android_static_analysis = "off"
 
 is_debug = false
 is_official_build = false
@@ -366,10 +367,19 @@ EOF
 run_ninja_resilient() {
   local out_dir="$1"
   shift
-  if ! "${NINJA_BIN}" -C "${out_dir}" -j "${COMPILE_JOBS}" "$@"; then
-    echo "ninja -j${COMPILE_JOBS} interrupted/spiked; retrying cleanly at -j2..."
-    "${NINJA_BIN}" -C "${out_dir}" -j 2 "$@"
+  if "${NINJA_BIN}" -C "${out_dir}" -j "${COMPILE_JOBS}" "$@"; then
+    return 0
   fi
+  echo "ninja -j${COMPILE_JOBS} interrupted/spiked; retrying cleanly at -j3..."
+  if "${NINJA_BIN}" -C "${out_dir}" -j 3 "$@"; then
+    return 0
+  fi
+  echo "ninja -j3 interrupted/spiked; retrying cleanly at -j2..."
+  if "${NINJA_BIN}" -C "${out_dir}" -j 2 "$@"; then
+    return 0
+  fi
+  echo "ninja -j2 interrupted/spiked; retrying cleanly at -j1..."
+  "${NINJA_BIN}" -C "${out_dir}" -j 1 "$@"
 }
 
 echo "== [6/8] Configuring & compiling arm64-v8a cefpack_webview_all (jobs=${COMPILE_JOBS}, lld_workers=${CHROMIUM_LLD_WORKERS}) =="

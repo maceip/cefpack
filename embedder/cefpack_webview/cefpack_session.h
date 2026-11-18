@@ -37,6 +37,7 @@ class CefpackSession : public content::WebContentsDelegate,
                           const std::string& top_level_url);
 
   void SetZoomLevel(double zoom_level);
+  void ResumeMedia();
   bool IsCurrentlyAudible() const;
   void PopulateNavigationEntries(
       JNIEnv* env,

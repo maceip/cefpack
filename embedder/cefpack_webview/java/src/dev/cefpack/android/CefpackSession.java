@@ -34,6 +34,7 @@ import org.chromium.components.embedder_support.view.ContentViewRenderView;
 import org.chromium.content_public.browser.ActionModeCallback;
 import org.chromium.content_public.browser.ActionModeCallbackHelper;
 import org.chromium.content_public.browser.LoadUrlParams;
+import org.chromium.content_public.browser.MediaSession;
 import org.chromium.content_public.browser.NavigationController;
 import org.chromium.content_public.browser.SelectionMenuItem;
 import org.chromium.content_public.browser.SelectionPopupController;
@@ -77,6 +78,10 @@ public final class CefpackSession {
     }
 
     public interface SessionCallback {
+        default void onLoadStart(String url) {}
+
+        default void onLoadEnd(int httpStatusCode, boolean isPrimaryMainFrame, String url) {}
+
         default void onUrlChanged(String url) {}
 
         default void onTitleChanged(String title) {}
@@ -404,7 +409,9 @@ public final class CefpackSession {
     }
 
     public void resumeMedia() {
-        // Media resumes on explicit user interaction in zero-JS mode.
+        if (!mClosed && mNativeSessionPtr != 0) {
+            CefpackSessionJni.get().resumeMedia(mNativeSessionPtr);
+        }
     }
 
     public void stopAllMedia() {
@@ -416,6 +423,12 @@ public final class CefpackSession {
 
     public void stopMediaSession() {
         stopAllMedia();
+        if (!mClosed && mWebContents != null) {
+            MediaSession session = MediaSession.fromWebContents(mWebContents);
+            if (session != null) {
+                session.stop();
+            }
+        }
     }
 
     public void setAudioMuted(boolean muted) {
@@ -706,10 +719,20 @@ public final class CefpackSession {
     }
 
     @CalledByNative
+    private void onLoadStartFromNative(String url) {
+        if (mSessionCallback != null) {
+            mSessionCallback.onLoadStart(url);
+        }
+    }
+
+    @CalledByNative
     private void onLoadEndFromNative(int httpStatusCode, boolean isPrimaryMainFrame, String url) {
         Log.i(
                 CefpackEngine.LOG_TAG,
                 "OnLoadEnd: status " + httpStatusCode + ", isMain=" + (isPrimaryMainFrame ? 1 : 0));
+        if (mSessionCallback != null) {
+            mSessionCallback.onLoadEnd(httpStatusCode, isPrimaryMainFrame, url);
+        }
     }
 
     @CalledByNative
@@ -770,6 +793,8 @@ public final class CefpackSession {
         void destroySession(long sessionPtr);
 
         void setZoomLevel(long sessionPtr, double zoomLevel);
+
+        void resumeMedia(long sessionPtr);
 
         boolean isCurrentlyAudible(long sessionPtr);
 

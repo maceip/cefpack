@@ -19,6 +19,7 @@
 #include "content/public/browser/color_chooser.h"
 #include "content/public/browser/context_menu_params.h"
 #include "content/public/browser/host_zoom_map.h"
+#include "content/public/browser/media_session.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/navigation_handle.h"
@@ -27,7 +28,9 @@
 #include "net/base/net_errors.h"
 #include "net/http/http_response_headers.h"
 #include "third_party/blink/public/common/mediastream/media_stream_request.h"
+#include "third_party/blink/public/common/renderer_preferences/renderer_preferences.h"
 #include "third_party/blink/public/mojom/mediastream/media_stream.mojom.h"
+#include "third_party/blink/public/mojom/peerconnection/webrtc_ip_handling_policy.mojom.h"
 
 // Must come after all headers that specialize FromJniType() / ToJniType().
 #include "cefpack_webview/cefpack_jni_headers/CefpackSession_jni.h"
@@ -91,6 +94,13 @@ CefpackSession::CefpackSession(
   content::WebContents::CreateParams create_params(context);
   create_params.initially_hidden = false;
   web_contents_ = content::WebContents::Create(create_params);
+  if (blink::RendererPreferences* renderer_prefs =
+          web_contents_->GetMutableRendererPrefs()) {
+    renderer_prefs->webrtc_ip_handling_policy =
+        blink::mojom::WebRtcIpHandlingPolicy::kDisableNonProxiedUdp;
+    renderer_prefs->enable_do_not_track = false;
+    web_contents_->SyncRendererPrefs();
+  }
   WebContentsMap()[web_contents_.get()] = this;
 
   web_contents_->SetDelegate(this);
@@ -138,6 +148,16 @@ void CefpackSession::SetZoomLevel(double zoom_level) {
     return;
   }
   content::HostZoomMap::SetZoomLevel(web_contents_.get(), zoom_level);
+}
+
+void CefpackSession::ResumeMedia() {
+  if (!web_contents_) {
+    return;
+  }
+  if (content::MediaSession* media_session =
+          content::MediaSession::GetIfExists(web_contents_.get())) {
+    media_session->Resume(content::MediaSession::SuspendType::kUI);
+  }
 }
 
 bool CefpackSession::IsCurrentlyAudible() const {
@@ -370,10 +390,10 @@ void CefpackSession::DidStartNavigation(
     return;
   }
   JNIEnv* env = base::android::AttachCurrentThread();
-  Java_CefpackSession_onUrlChangedFromNative(
-      env, java_session_,
-      base::android::ConvertUTF8ToJavaString(
-          env, navigation_handle->GetURL().spec()));
+  auto j_url = base::android::ConvertUTF8ToJavaString(
+      env, navigation_handle->GetURL().spec());
+  Java_CefpackSession_onLoadStartFromNative(env, java_session_, j_url);
+  Java_CefpackSession_onUrlChangedFromNative(env, java_session_, j_url);
   NotifyLoadingState();
 }
 
@@ -388,7 +408,7 @@ void CefpackSession::DidFinishNavigation(
   const net::Error net_err = navigation_handle->GetNetErrorCode();
 
   if (navigation_handle->HasCommitted()) {
-    int status_code = 200;
+    int status_code = 0;
     if (const net::HttpResponseHeaders* headers =
             navigation_handle->GetResponseHeaders()) {
       status_code = headers->response_code();
@@ -515,6 +535,12 @@ static void JNI_CefpackSession_SetZoomLevel(JNIEnv* env,
                                             jdouble zoom_level) {
   if (CefpackSession* session = CefpackSession::FromNativePtr(session_ptr)) {
     session->SetZoomLevel(zoom_level);
+  }
+}
+
+static void JNI_CefpackSession_ResumeMedia(JNIEnv* env, jlong session_ptr) {
+  if (CefpackSession* session = CefpackSession::FromNativePtr(session_ptr)) {
+    session->ResumeMedia();
   }
 }
 

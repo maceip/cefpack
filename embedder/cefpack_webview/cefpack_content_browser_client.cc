@@ -58,6 +58,7 @@ net::ProxyConfigWithAnnotation BuildSocksProxyConfig(
     const std::string& normalized_rules) {
   net::ProxyConfig config;
   config.proxy_rules().ParseFromString(normalized_rules);
+  config.proxy_rules().bypass_rules.AddRulesToSubtractImplicit();
   return net::ProxyConfigWithAnnotation(config, MISSING_TRAFFIC_ANNOTATION);
 }
 

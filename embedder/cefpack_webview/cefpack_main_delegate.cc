@@ -16,6 +16,8 @@
 #include "base/logging/logging_settings.h"
 #include "base/posix/global_descriptors.h"
 #include "base/process/current_process.h"
+#include "base/strings/string_split.h"
+#include "base/strings/string_util.h"
 #include "cefpack_webview/cefpack_content_browser_client.h"
 #include "cefpack_webview/cefpack_content_client.h"
 #include "cefpack_webview/cefpack_descriptors.h"
@@ -33,18 +35,33 @@ namespace {
 constexpr char kDisabledFeatures[] =
     "PartitionAllocMemoryTagging,AutofillServerCommunication,"
     "OptimizationHints,Translate,MediaRouter,WebRtcHideLocalIpsWithMdns,"
-    "HttpsUpgrades,HttpsFirstBalancedModeAutoEnable";
+    "HttpsUpgrades,HttpsFirstBalancedMode,HttpsFirstBalancedModeAutoEnable";
 
 void AppendHardeningSwitches(base::CommandLine& command_line) {
   std::string existing_disabled =
       command_line.GetSwitchValueASCII("disable-features");
   if (existing_disabled.empty()) {
     command_line.AppendSwitchASCII("disable-features", kDisabledFeatures);
-  } else if (existing_disabled.find("PartitionAllocMemoryTagging") ==
-             std::string::npos) {
+  } else {
+    std::vector<std::string> merged = base::SplitString(
+        existing_disabled, ",", base::TRIM_WHITESPACE, base::SPLIT_WANT_NONEMPTY);
+    for (const std::string& req :
+         base::SplitString(kDisabledFeatures, ",", base::TRIM_WHITESPACE,
+                           base::SPLIT_WANT_NONEMPTY)) {
+      bool present = false;
+      for (const std::string& cur : merged) {
+        if (cur == req) {
+          present = true;
+          break;
+        }
+      }
+      if (!present) {
+        merged.push_back(req);
+      }
+    }
     command_line.RemoveSwitch("disable-features");
-    command_line.AppendSwitchASCII(
-        "disable-features", existing_disabled + "," + kDisabledFeatures);
+    command_line.AppendSwitchASCII("disable-features",
+                                   base::JoinString(merged, ","));
   }
 
   if (!command_line.HasSwitch("host-resolver-rules")) {
