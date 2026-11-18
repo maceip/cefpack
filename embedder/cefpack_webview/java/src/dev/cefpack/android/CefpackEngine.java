@@ -27,9 +27,6 @@ import org.chromium.ui.base.IntentRequestTracker;
 import org.chromium.ui.base.ResourceBundle;
 import org.chromium.ui.base.WindowAndroid;
 
-import java.util.Map;
-import java.util.WeakHashMap;
-
 /**
  * Process-wide initializer and controller for the Cefpack Chromium content embedder.
  *
@@ -48,9 +45,6 @@ public final class CefpackEngine {
     private static volatile boolean sProcessInitialized;
     private static volatile boolean sBrowserStarted;
     private static volatile String sPendingProxyServer = "socks5://127.0.0.1:1";
-
-    private static final Map<Activity, IntentRequestTracker> sActivityIntentTrackers =
-            new WeakHashMap<>();
 
     private CefpackEngine() {}
 
@@ -194,17 +188,13 @@ public final class CefpackEngine {
     static synchronized WindowAndroid createWindowAndroid(Context context) {
         Activity activity = ContextUtils.activityFromContext(context);
         if (activity != null) {
-            IntentRequestTracker tracker = sActivityIntentTrackers.get(activity);
-            if (tracker == null) {
-                tracker = IntentRequestTracker.createFromActivity(activity);
-                sActivityIntentTrackers.put(activity, tracker);
-            }
+            IntentRequestTracker tracker = IntentRequestTracker.createFromActivity(activity);
             return new ActivityWindowAndroid(
                     activity,
                     /* listenToActivityState= */ true,
                     tracker,
                     /* insetObserver= */ null,
-                    /* occlusionTrackingAllowed= */ true);
+                    /* occlusionTrackingAllowed= */ false);
         }
         return new WindowAndroid(context, /* trackOcclusion= */ false);
     }
