@@ -76,11 +76,23 @@ fi
 export LD_LIBRARY_PATH="${HOST_TOOLS}/usr/lib/x86_64-linux-gnu:${LD_LIBRARY_PATH:-}"
 export PATH="${DEPOT}:${HOST_TOOLS}/usr/bin:${PATH}"
 
+PINNED_CHROMIUM_VERSION="156.0.8078.96"
 PINNED_CHROMIUM="2ad9b7f5a86846e0b264090723a6a78964bb84c4"
+python3 - "${ROOT}/crates/cefpack/manifest/cef-android.toml" "${PINNED_CHROMIUM_VERSION}" "${PINNED_CHROMIUM}" <<'PY'
+import sys, tomllib
+with open(sys.argv[1], "rb") as f:
+    m = tomllib.load(f)
+want_ver, want_sha = m["engine"]["chromium_version"], m["chromium"]["commit"]
+if sys.argv[2] != want_ver or sys.argv[3] != want_sha:
+    raise SystemExit(
+        f"build-cefpack-aar.sh pin ({sys.argv[2]} @ {sys.argv[3]}) != "
+        f"cef-android.toml ({want_ver} @ {want_sha})"
+    )
+PY
 if [ "$(git -C "${SRC}" rev-parse HEAD 2>/dev/null || true)" = "${PINNED_CHROMIUM}" ] && \
    [ -d "${SRC}/third_party/jdk/current" ] && \
    [ -d "${SRC}/build/linux/debian_bullseye_amd64-sysroot" ]; then
-  echo "== [2/8] Warm Chromium 156 checkout + sysroot detected; resetting modified files =="
+  echo "== [2/8] Warm Chromium ${PINNED_CHROMIUM_VERSION} checkout + sysroot detected; resetting modified files =="
   git -C "${SRC}" checkout -- .
 else
   cargo build --release -j 4
@@ -470,6 +482,8 @@ python3 "${ROOT}/embedder/assemble_aar.py" \
   --native-libs-srcjar "${OUT_ARM64}/gen/cefpack_webview/cefpack_native_libraries_srcjar.srcjar" \
   --jni-registration-srcjar "${OUT_ARM64}/gen/cefpack_webview/libcefpack_content__jni_registration.srcjar" \
   --javac "${JAVAC_BIN}" \
+  --chromium-version "${PINNED_CHROMIUM_VERSION}" \
+  --chromium-commit "${PINNED_CHROMIUM}" \
   --output "${ROOT}/cefpack-android.aar" \
   --bundle-dir "${CEF_BUNDLE_DIR}"
 

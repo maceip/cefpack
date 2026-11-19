@@ -1,0 +1,259 @@
+name: Sync Upstream Chromium & CEF
+
+on:
+  schedule:
+    # Perpetual auto-update: every 3 days at 06:17 UTC.
+    - cron: '17 6 */3 * *'
+  workflow_dispatch:
+    inputs:
+      chromium_branch:
+        description: 'Optional CEF numeric branch override (e.g. 8078)'
+        required: false
+        default: ''
+        type: string
+      force:
+        description: 'Force PR + Limrun build even if pins already match'
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: update-chromium
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync:
+    name: Poll Chromium Dash & CEF and open PR
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      changed: ${{ steps.poll.outputs.changed }}
+      branch: ${{ steps.poll.outputs.branch }}
+      pr_number: ${{ steps.poll.outputs.pr_number }}
+      next_tag: ${{ steps.poll.outputs.next_tag }}
+      chromium_version: ${{ steps.poll.outputs.chromium_version }}
+      chromium_commit: ${{ steps.poll.outputs.chromium_commit }}
+      chromium_branch: ${{ steps.poll.outputs.chromium_branch }}
+      cef_version: ${{ steps.poll.outputs.cef_version }}
+    steps:
+      - name: Checkout cefpack
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Rate limit (max one auto-update per 3 days)
+        id: rate
+        if: github.event_name != 'workflow_dispatch'
+        run: |
+          set -euo pipefail
+          last="$(git log -1 --format=%cI --grep='chore(chromium): auto-sync' || true)"
+          {
+            echo "### Rate limit (max one auto-update per 3 days)"
+            echo "- Event: \`${GITHUB_EVENT_NAME}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [[ -z "$last" ]]; then
+            echo "No previous auto-sync commit; proceeding."
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          last_ts="$(date -d "$last" +%s)"
+          now_ts="$(date +%s)"
+          age_days="$(( (now_ts - last_ts) / 86400 ))"
+          echo "Last auto-sync: $last ($age_days day(s) ago)"
+          if [[ "$age_days" -lt 3 ]]; then
+            echo "Rate limit hit ($age_days < 3 days); skipping."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install Rust toolchain
+        if: steps.rate.outputs.skip != 'true'
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+        if: steps.rate.outputs.skip != 'true'
+        with:
+          workspaces: . -> target
+
+      - name: Poll upstream Chromium Dash Stable Android & chromiumembedded/cef
+        id: poll
+        if: steps.rate.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          INPUT_BRANCH: ${{ inputs.chromium_branch }}
+          INPUT_FORCE: ${{ inputs.force }}
+        run: |
+          set -euo pipefail
+          chmod +x scripts/sync-upstream-chromium.py
+          python3 ./scripts/sync-upstream-chromium.py --self-test
+
+          ARGS=(--json-out /tmp/chromium-sync.json)
+          if [[ -n "${INPUT_BRANCH:-}" ]]; then
+            ARGS+=(--chromium-branch "${INPUT_BRANCH}")
+          fi
+          if [[ "${INPUT_FORCE:-false}" == "true" ]]; then
+            ARGS+=(--force)
+          fi
+          python3 ./scripts/sync-upstream-chromium.py "${ARGS[@]}"
+          cat /tmp/chromium-sync.json
+
+          CHANGED="$(python3 -c 'import json; d=json.load(open("/tmp/chromium-sync.json")); print("true" if d["changed"] else "false")')"
+          CHROMIUM_VER="$(python3 -c 'import json; print(json.load(open("/tmp/chromium-sync.json"))["chromium_version"])')"
+          CHROMIUM_SHA="$(python3 -c 'import json; print(json.load(open("/tmp/chromium-sync.json"))["chromium_commit"])')"
+          CHROMIUM_BRANCH="$(python3 -c 'import json; print(json.load(open("/tmp/chromium-sync.json"))["chromium_branch"])')"
+          CEF_VER="$(python3 -c 'import json; print(json.load(open("/tmp/chromium-sync.json"))["cef_version"])')"
+          OLD_VER="$(python3 -c 'import json; print(json.load(open("/tmp/chromium-sync.json"))["old_chromium_version"])')"
+
+          if [[ "${CHANGED}" != "true" ]]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "### Upstream Chromium & CEF Sync"
+              echo "- Status: **up to date** (\`Chromium ${CHROMIUM_VER}\`, \`CEF ${CEF_VER}\`)"
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          # Run full fast checks before opening PR or provisioning Limrun
+          cargo fmt --all -- --check
+          cargo clippy --workspace --all-targets -- -D warnings
+          cargo test --workspace
+          python3 ./embedder/assemble_aar.py --self-test
+          bash -n scripts/build-cefpack-aar.sh scripts/limrun-aar-build.sh
+
+          LATEST_TAG="$(git tag --list 'v*.*.*' --sort=-v:refname | head -n1 || true)"
+          if [[ -n "${LATEST_TAG}" ]]; then
+            IFS='.' read -r MAJ MIN PAT <<<"${LATEST_TAG#v}"
+            NEXT_TAG="v${MAJ}.${MIN}.$((PAT + 1))"
+          else
+            NEXT_TAG="v0.2.2"
+          fi
+
+          SYNC_BRANCH="chore/chromium-sync-${CHROMIUM_VER}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B "${SYNC_BRANCH}"
+          git add -A
+          git commit -m "chore(chromium): auto-sync Chromium ${CHROMIUM_VER} (${CHROMIUM_SHA:0:12})"
+          git push --force origin "${SYNC_BRANCH}"
+
+          PR_TITLE="chore(chromium): bump Chromium ${OLD_VER} -> ${CHROMIUM_VER}"
+          PR_BODY="$(cat <<EOF
+          Automated upstream sync from **Chromium Dash (Android Stable)** & **\`chromiumembedded/cef\`**:
+
+          - **Chromium:** \`${OLD_VER}\` -> \`${CHROMIUM_VER}\` (\`${CHROMIUM_SHA}\`)
+          - **CEF:** \`${CEF_VER}\` (branch \`${CHROMIUM_BRANCH}\`)
+          - **Target Release Tag (on green Limrun AAR gate):** \`${NEXT_TAG}\`
+
+          Gated by \`build-aar.yml\` on Limrun before auto-merging and publishing \`${NEXT_TAG}\`.
+          EOF
+          )"
+
+          EXISTING_PR="$(gh pr list --head "${SYNC_BRANCH}" --base main --state open --json number --jq '.[0].number // empty')"
+          if [[ -n "${EXISTING_PR}" ]]; then
+            gh pr edit "${EXISTING_PR}" --title "${PR_TITLE}" --body "${PR_BODY}"
+            PR_NUMBER="${EXISTING_PR}"
+          else
+            PR_URL="$(gh pr create --base main --head "${SYNC_BRANCH}" --title "${PR_TITLE}" --body "${PR_BODY}")"
+            PR_NUMBER="$(gh pr view "${PR_URL}" --json number --jq '.number')"
+          fi
+
+          {
+            echo "changed=true"
+            echo "branch=${SYNC_BRANCH}"
+            echo "pr_number=${PR_NUMBER}"
+            echo "next_tag=${NEXT_TAG}"
+            echo "chromium_version=${CHROMIUM_VER}"
+            echo "chromium_commit=${CHROMIUM_SHA}"
+            echo "chromium_branch=${CHROMIUM_BRANCH}"
+            echo "cef_version=${CEF_VER}"
+          } >> "$GITHUB_OUTPUT"
+
+          {
+            echo "### Upstream Chromium & CEF Sync"
+            echo "- Opened/updated PR #${PR_NUMBER} (\`${SYNC_BRANCH}\`) for **Chromium \`${CHROMIUM_VER}\`** -> gated by Limrun AAR build."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  limrun-gate:
+    name: Gated Limrun AAR Build on PR
+    needs: sync
+    if: needs.sync.outputs.changed == 'true'
+    uses: ./.github/workflows/build-aar.yml
+    secrets: inherit
+    with:
+      checkout_ref: ${{ needs.sync.outputs.branch }}
+      publish: false
+      release_tag: ${{ needs.sync.outputs.next_tag }}
+      sandbox_key: sync-${{ needs.sync.outputs.chromium_branch }}
+
+  release-on-green:
+    name: Merge PR & Auto-Tag Verified Release
+    needs:
+      - sync
+      - limrun-gate
+    if: needs.sync.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+      pull-requests: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      PR_NUMBER: ${{ needs.sync.outputs.pr_number }}
+      TAG: ${{ needs.sync.outputs.next_tag }}
+      CHROMIUM_VER: ${{ needs.sync.outputs.chromium_version }}
+      CHROMIUM_SHA: ${{ needs.sync.outputs.chromium_commit }}
+    steps:
+      - name: Merge verified PR into main
+        run: |
+          set -euo pipefail
+          gh pr merge "${PR_NUMBER}" --squash --delete-branch
+
+      - name: Checkout merged main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Download Limrun-verified AAR and bundle artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: cefpack-android-aar
+          path: dist
+
+      - name: Verify SHA-256 digests and publish GitHub Release
+        run: |
+          set -euo pipefail
+          cd dist
+          sha256sum -c cefpack-android.aar.sha256
+          sha256sum -c cefpack-android.tar.gz.sha256 2>/dev/null || sha256sum -c cef-bundle.tar.gz.sha256
+
+          TARGET_SHA="$(git -C .. rev-parse HEAD)"
+          AAR_SHA="$(cut -d' ' -f1 cefpack-android.aar.sha256)"
+          BUNDLE_SHA="$(cut -d' ' -f1 cef-bundle.tar.gz.sha256)"
+          NOTES="$(printf 'Source-built multi-ABI (`arm64-v8a` + `x86_64`) Android Chromium content engine (`%s`, commit `%s`).\n\n- Zero Cefrium, zero Google Play Services / Firebase / MLKit, zero desktop Chrome UI\n- 16 KB ELF64 `PT_LOAD` aligned `libcefpack_content.so` (`arm64-v8a` + `x86_64`)\n- `cefpack-android.aar` SHA-256: `%s`\n- `cef-bundle.tar.gz` SHA-256: `%s`\n' "${CHROMIUM_VER}" "${CHROMIUM_SHA}" "${AAR_SHA}" "${BUNDLE_SHA}")"
+
+          if gh release view "${TAG}" >/dev/null 2>&1; then
+            gh release upload "${TAG}" \
+              cefpack-android.aar \
+              cefpack-android.aar.sha256 \
+              cef-bundle.tar.gz \
+              cef-bundle.tar.gz.sha256 \
+              --clobber
+            gh release edit "${TAG}" --title "Cefpack Android ${TAG} (Chromium ${CHROMIUM_VER})" --notes "${NOTES}"
+          else
+            gh release create "${TAG}" \
+              cefpack-android.aar \
+              cefpack-android.aar.sha256 \
+              cef-bundle.tar.gz \
+              cef-bundle.tar.gz.sha256 \
+              --target "${TARGET_SHA}" \
+              --title "Cefpack Android ${TAG} (Chromium ${CHROMIUM_VER})" \
+              --notes "${NOTES}"
+          fi

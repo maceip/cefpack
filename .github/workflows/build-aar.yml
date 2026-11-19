@@ -1,6 +1,33 @@
 name: Build Cefpack Android AAR
 
 on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'crates/cefpack/manifest/cef-android.toml'
+      - 'scripts/build-cefpack-aar.sh'
+  workflow_call:
+    inputs:
+      publish:
+        description: Publish cefpack-android.aar and cef-bundle.tar.gz to GitHub Releases
+        type: boolean
+        required: false
+        default: false
+      release_tag:
+        description: GitHub Release tag to create or update
+        type: string
+        required: false
+        default: ''
+      sandbox_key:
+        description: Limrun sandbox reuse key
+        type: string
+        required: false
+        default: v021
+      checkout_ref:
+        description: Optional git ref/branch to check out instead of caller ref
+        type: string
+        required: false
+        default: ''
   workflow_dispatch:
     inputs:
       publish:
@@ -8,40 +35,74 @@ on:
         type: boolean
         default: true
       release_tag:
-        description: GitHub Release tag to create or update
+        description: GitHub Release tag to create or update (defaults to next patch tag if empty)
         type: string
-        default: v0.2.0
+        default: ''
       sandbox_key:
         description: Limrun sandbox reuse key
         type: string
-        default: v020
+        default: v021
+      checkout_ref:
+        description: Optional git ref/branch to check out
+        type: string
+        default: ''
 
 permissions:
   contents: write
 
 concurrency:
-  group: cefpack-aar-${{ inputs.sandbox_key || 'v020' }}
+  group: cefpack-aar-${{ inputs.sandbox_key || github.head_ref || 'v021' }}
   cancel-in-progress: false
 
 jobs:
   build-aar:
     name: Build multi-ABI cefpack-android.aar on Limrun
+    if: github.event_name != 'pull_request' || !startsWith(github.head_ref, 'chore/chromium-sync-')
     runs-on: ubuntu-latest
     timeout-minutes: 360
     env:
       LIM_API_KEY: ${{ secrets.LIMRUN_API_KEY }}
       LIMRUN_TOOLS_DIR: /tmp/limrun-tools
       CEF_MIN_CREDIT: "0"
-      CEF_SANDBOX_KEY: ${{ inputs.sandbox_key || 'v020' }}
+      CEF_SANDBOX_KEY: ${{ inputs.sandbox_key || (github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number)) || 'v021' }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.checkout_ref || '' }}
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
 
-      - name: Run assemble_aar.py self-test before provisioning sandbox
-        run: python3 ./embedder/assemble_aar.py --self-test
+      - name: Resolve Chromium pin metadata from cef-android.toml
+        id: meta
+        env:
+          INPUT_TAG: ${{ inputs.release_tag }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import os, subprocess, tomllib
+          with open("crates/cefpack/manifest/cef-android.toml", "rb") as f:
+              m = tomllib.load(f)
+          print(f"chromium_version={m['engine']['chromium_version']}")
+          print(f"chromium_commit={m['chromium']['commit']}")
+          print(f"cef_version={m['engine']['cef_version']}")
+          tag = os.environ.get("INPUT_TAG", "").strip()
+          if not tag:
+              tags = subprocess.check_output(["git", "tag", "--list", "v*.*.*", "--sort=-v:refname"], text=True).splitlines()
+              if tags:
+                  parts = tags[0].lstrip("v").split(".")
+                  tag = f"v{parts[0]}.{parts[1]}.{int(parts[2]) + 1}"
+              else:
+                  tag = "v0.2.2"
+          print(f"release_tag={tag}")
+          PY
+
+      - name: Run assemble_aar.py and sync-upstream-chromium.py self-tests before provisioning sandbox
+        run: |
+          python3 ./embedder/assemble_aar.py --self-test
+          python3 ./scripts/sync-upstream-chromium.py --self-test
 
       - name: Build cefpack-android.aar on Limrun
         run: ./scripts/limrun-aar-build.sh
@@ -63,14 +124,18 @@ jobs:
           retention-days: 30
 
       - name: Publish GitHub Release
-        if: inputs.publish
+        if: github.event_name != 'pull_request' && inputs.publish == true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ inputs.release_tag || 'v0.2.0' }}
+          TAG: ${{ steps.meta.outputs.release_tag }}
+          CHROMIUM_VER: ${{ steps.meta.outputs.chromium_version }}
+          CHROMIUM_SHA: ${{ steps.meta.outputs.chromium_commit }}
         run: |
+          set -euo pipefail
+          TARGET_SHA="$(git rev-parse HEAD)"
           AAR_SHA="$(cut -d' ' -f1 cefpack-android.aar.sha256)"
           BUNDLE_SHA="$(cut -d' ' -f1 cef-bundle.tar.gz.sha256)"
-          NOTES="$(printf 'Source-built multi-ABI (`arm64-v8a` + `x86_64`) Android Chromium content engine (`156.0.8078.96`, commit `2ad9b7f5a86846e0b264090723a6a78964bb84c4`).\n\n- Zero Cefrium, zero Google Play Services / Firebase / MLKit, zero desktop Chrome UI\n- 16 KB ELF64 `PT_LOAD` aligned `libcefpack_content.so` (`arm64-v8a` + `x86_64`)\n- `cefpack-android.aar` SHA-256: `%s`\n- `cef-bundle.tar.gz` SHA-256: `%s`\n' "${AAR_SHA}" "${BUNDLE_SHA}")"
+          NOTES="$(printf 'Source-built multi-ABI (`arm64-v8a` + `x86_64`) Android Chromium content engine (`%s`, commit `%s`).\n\n- Zero Cefrium, zero Google Play Services / Firebase / MLKit, zero desktop Chrome UI\n- 16 KB ELF64 `PT_LOAD` aligned `libcefpack_content.so` (`arm64-v8a` + `x86_64`)\n- `cefpack-android.aar` SHA-256: `%s`\n- `cef-bundle.tar.gz` SHA-256: `%s`\n' "${CHROMIUM_VER}" "${CHROMIUM_SHA}" "${AAR_SHA}" "${BUNDLE_SHA}")"
           if gh release view "${TAG}" >/dev/null 2>&1; then
             gh release upload "${TAG}" \
               cefpack-android.aar \
@@ -78,14 +143,14 @@ jobs:
               cef-bundle.tar.gz \
               cef-bundle.tar.gz.sha256 \
               --clobber
-            gh release edit "${TAG}" --notes "${NOTES}"
+            gh release edit "${TAG}" --title "Cefpack Android ${TAG} (Chromium ${CHROMIUM_VER})" --notes "${NOTES}"
           else
             gh release create "${TAG}" \
               cefpack-android.aar \
               cefpack-android.aar.sha256 \
               cef-bundle.tar.gz \
               cef-bundle.tar.gz.sha256 \
-              --target "${GITHUB_SHA}" \
-              --title "Cefpack Android ${TAG} (Chromium 156.0.8078.96)" \
+              --target "${TARGET_SHA}" \
+              --title "Cefpack Android ${TAG} (Chromium ${CHROMIUM_VER})" \
               --notes "${NOTES}"
           fi

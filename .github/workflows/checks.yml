@@ -60,6 +60,12 @@ jobs:
         # The service must run and report the state of the host, not fail.
         run: cargo run --quiet -- plan
 
+      - name: The upstream sync & AAR packager self-tests
+        run: |
+          python3 ./scripts/sync-upstream-chromium.py --self-test
+          python3 ./embedder/assemble_aar.py --self-test
+          bash -n scripts/build-cefpack-aar.sh scripts/limrun-aar-build.sh
+
       - uses: actions/upload-artifact@v4
         with:
           name: coverage-lcov
