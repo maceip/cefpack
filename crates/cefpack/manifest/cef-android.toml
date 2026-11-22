@@ -15,19 +15,19 @@ schema = 1
 [engine]
 # The CEF release.  The `g6028375` is the CEF revision, the tail is the
 # Chromium revision that CEF tracks.
-cef_version = "156.0.30+g6028375+chromium-156.0.8078.96"
-chromium_version = "156.0.8078.96"
+cef_version = "158.0.3+g8c29be2+chromium-158.0.8127.18"
+chromium_version = "158.0.8127.18"
 # The branch the revision belongs to.  The branches of CEF carry the number
 # of the Chromium revision they follow, not the version of Chromium: this
 # one follows Chromium 156.0.8078.96, and it is called 8078.
-branch = "8078"
+branch = "8127"
 
 [source]
 repo = "https://github.com/chromiumembedded/cef.git"
-branch = "8078"
+branch = "8127"
 # The pinned revision.  `cefpack fetch` checks this out and refuses to build
 # anything else.
-commit = "6028375a4532fb89d23b58635f5c0d3a82c93959"
+commit = "8c29be240971eebee960ac92114d3efccb5780ff"
 
 [target]
 os = "android"
@@ -63,9 +63,9 @@ clang_version = "18"
 # before it downloads anything.
 [sysroot]
 bucket = "chrome-linux-sysroot"
-object = "52d61d4446ffebfaa3dda2cd02da4ab4876ff237853f46d273e7f9b666652e1d"
-sha256 = "52d61d4446ffebfaa3dda2cd02da4ab4876ff237853f46d273e7f9b666652e1d"
-size = 19727236
+object = "f851add76bdae472fb6c94b4f920bc4a132d85ac607951391297f636af7e934e"
+sha256 = "f851add76bdae472fb6c94b4f920bc4a132d85ac607951391297f636af7e934e"
+size = 19314716
 path = "src/build/linux/debian_bullseye_amd64-sysroot"
 
 [gn]
@@ -171,8 +171,8 @@ debug_args = [
 #
 # CEF's own DEPS file does not name it — that file carries only the hook
 # that patches Chromium — so the pin belongs here.
-ref = "156.0.8078.96"
-commit = "2ad9b7f5a86846e0b264090723a6a78964bb84c4"
+ref = "158.0.8127.18"
+commit = "6449d9f9a6a906edff724b7b220199b3fde4615c"
 repo = "https://chromium.googlesource.com/chromium/src.git"
 base_url = "https://raw.githubusercontent.com/chromium/chromium"
 
@@ -182,7 +182,7 @@ sha256 = "8647b49488fbd0856ff03056c459ddfd115a89533637ddb8037637e9c7def243"
 
 [[chromium.headers]]
 path = "ui/color/color_id.h"
-sha256 = "687497263a48891c1f5a7592c8304a63fea55162d2dc9b43cf0731f099143b95"
+sha256 = "1efeb1fcae4047b68e6dcfdc94f2839fb37022f1c17029fedcd59e55d920d813"
 
 [[chromium.headers]]
 path = "components/color/color_id.h"
@@ -190,11 +190,11 @@ sha256 = "ee89a89f8ae04db661597c1f2f1326e3f49e147072e4be3628a549b757db1021"
 
 [[chromium.headers]]
 path = "chrome/browser/ui/color/chrome_color_id.h"
-sha256 = "395eb8561b8cedf6bd4133aa29f05a2d0fd0c8f91b968388c5753dfb8582affd"
+sha256 = "982b4096200dbab5c561a2786d58ac3dd94b91166e9d7a7b38d34f14706af32d"
 
 [[chromium.headers]]
 path = "chrome/app/chrome_command_ids.h"
-sha256 = "c5432d82477f61bb6815f4f0aa46ee3c006bc986560f2a241ac1d759c0036e52"
+sha256 = "8eca6f326159af678e0715593126c4ac4f6b104c6872865b0810f5de114bc9fc"
 
 [assets]
 # The resource files that the engine reads at runtime.  They are collected

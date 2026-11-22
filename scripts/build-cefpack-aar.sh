@@ -76,8 +76,8 @@ fi
 export LD_LIBRARY_PATH="${HOST_TOOLS}/usr/lib/x86_64-linux-gnu:${LD_LIBRARY_PATH:-}"
 export PATH="${DEPOT}:${HOST_TOOLS}/usr/bin:${PATH}"
 
-PINNED_CHROMIUM_VERSION="156.0.8078.96"
-PINNED_CHROMIUM="2ad9b7f5a86846e0b264090723a6a78964bb84c4"
+PINNED_CHROMIUM_VERSION="158.0.8127.18"
+PINNED_CHROMIUM="6449d9f9a6a906edff724b7b220199b3fde4615c"
 python3 - "${ROOT}/crates/cefpack/manifest/cef-android.toml" "${PINNED_CHROMIUM_VERSION}" "${PINNED_CHROMIUM}" <<'PY'
 import sys, tomllib
 with open(sys.argv[1], "rb") as f:

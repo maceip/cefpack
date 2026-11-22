@@ -1179,8 +1179,8 @@ def run_self_test(javac_bin: str, emit_mock_aar: Path | None = None) -> None:
             javac_bin=javac_bin,
             output_aar=out_aar,
             bundle_dir=bundle_dir,
-            chromium_version="156.0.8078.96",
-            chromium_commit="2ad9b7f5a86846e0b264090723a6a78964bb84c4",
+            chromium_version="158.0.8127.18",
+            chromium_commit="6449d9f9a6a906edff724b7b220199b3fde4615c",
         )
         print(f"assemble_aar.py --self-test PASSED ({out_aar})")
 
@@ -1200,9 +1200,9 @@ def main() -> int:
     parser.add_argument("--javac", default=shutil.which("javac") or "javac")
     parser.add_argument("--output", type=Path, default=Path("cefpack-android.aar"))
     parser.add_argument("--bundle-dir", type=Path, default=Path("cef-bundle"))
-    parser.add_argument("--chromium-version", default="156.0.8078.96")
+    parser.add_argument("--chromium-version", default="158.0.8127.18")
     parser.add_argument(
-        "--chromium-commit", default="2ad9b7f5a86846e0b264090723a6a78964bb84c4"
+        "--chromium-commit", default="6449d9f9a6a906edff724b7b220199b3fde4615c"
     )
     args = parser.parse_args()
 

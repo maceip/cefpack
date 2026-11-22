@@ -191,7 +191,7 @@ public final class CefpackSession {
         mViewAndroidDelegate = new CefpackViewAndroidDelegate(mContentView);
 
         webContents.setDelegates(
-                "156.0.8078.96",
+                "158.0.8127.18",
                 mViewAndroidDelegate,
                 mContentView,
                 mWindowAndroid,
